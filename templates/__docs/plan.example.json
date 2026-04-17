@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "branch": "fix/user-login-500",
+  "type": "fix",
+  "title": "사용자 로그인 시 500 에러 수정",
+  "created_at": "2026-04-17T14:00:00Z",
+  "status": "in_progress",
+  "prd_path": "__docs/PRD.md",
+  "steps": [
+    {
+      "id": 1,
+      "title": "로그인 요청 페이로드 스키마 정의",
+      "description": "zod 로 username/password 필수·길이·형식 검증. 실패 시 400 반환.",
+      "scope": "backend",
+      "depends_on": [],
+      "status": "completed",
+      "retries": 0,
+      "error_log": [],
+      "commit": "a1b2c3d",
+      "artifacts": [
+        "src/features/auth/schemas.ts",
+        "src/features/auth/schemas.test.ts"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "컨트롤러에서 스키마 적용 + 에러 매핑",
+      "description": "zod 검증 에러를 400 도메인 에러로 변환. 기존 500 경로 제거.",
+      "scope": "backend",
+      "depends_on": [1],
+      "status": "in_progress",
+      "retries": 1,
+      "error_log": [
+        {
+          "at": "2026-04-17T14:12:31Z",
+          "message": "테스트 실패: expected 400 got 500 — 에러 미들웨어가 ZodError 를 매핑하지 않음"
+        }
+      ],
+      "commit": null,
+      "artifacts": []
+    },
+    {
+      "id": 3,
+      "title": "통합 테스트 추가 (supertest 기반)",
+      "description": "POST /login 에 잘못된 페이로드 → 400, 정상 페이로드 → 200 커버.",
+      "scope": "backend",
+      "depends_on": [2],
+      "status": "pending",
+      "retries": 0,
+      "error_log": [],
+      "commit": null,
+      "artifacts": []
+    },
+    {
+      "id": 4,
+      "title": "클라이언트 에러 메시지 처리",
+      "description": "400 응답을 폼 필드별 인라인 에러로 표시.",
+      "scope": "web",
+      "depends_on": [2],
+      "status": "pending",
+      "retries": 0,
+      "error_log": [],
+      "commit": null,
+      "artifacts": []
+    }
+  ]
+}

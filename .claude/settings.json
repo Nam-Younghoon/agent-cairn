@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/block_dangerous.py"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/block_secret_files.py"
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(rm -r -f:*)",
+      "Bash(rm -f -r:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -f:*)",
+      "Bash(git clean -x:*)",
+      "Bash(git checkout --:*)",
+      "Bash(git restore --worktree --source:*)",
+      "Bash(chmod -R 777:*)",
+      "Bash(chmod 777:*)",
+      "Bash(curl * | sh:*)",
+      "Bash(curl * | bash:*)",
+      "Bash(wget * | sh:*)",
+      "Bash(wget * | bash:*)",
+      "Bash(sudo:*)",
+      "Bash(dd:*)",
+      "Bash(mkfs:*)",
+      "Write(.env)",
+      "Write(.env.local)",
+      "Write(.env.production)",
+      "Write(.env.prod)",
+      "Write(.env.staging)",
+      "Write(**/.env)",
+      "Write(**/.env.production)",
+      "Write(**/.env.prod)",
+      "Edit(.env)",
+      "Edit(.env.production)",
+      "Edit(.env.prod)",
+      "Edit(**/.env.production)"
+    ],
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx jest:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx prettier:*)",
+      "Bash(flutter test:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter build:*)",
+      "Bash(dart format:*)",
+      "Bash(dart analyze:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(pytest:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git push:*)",
+      "Bash(git rebase:*)",
+      "Bash(git merge:*)",
+      "Bash(git worktree:*)",
+      "Bash(git stash:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
+    ]
+  }
+}

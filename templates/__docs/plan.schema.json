@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Harness Plan",
+  "description": "`/plan` 이 생성하고 `/execute`, `/ship` 이 읽고 갱신하는 작업 상태 파일.",
+  "type": "object",
+  "required": ["version", "branch", "type", "title", "created_at", "steps"],
+  "properties": {
+    "version": { "type": "integer", "const": 1 },
+    "branch": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": ["feat", "fix", "chore", "refactor", "style", "docs", "design", "test"]
+    },
+    "title": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "status": {
+      "type": "string",
+      "enum": ["planning", "in_progress", "blocked", "ready_to_ship", "shipped"]
+    },
+    "prd_path": { "type": "string", "default": "__docs/PRD.md" },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "status"],
+        "properties": {
+          "id": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "in_progress", "completed", "error", "blocked"]
+          },
+          "depends_on": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "이 스텝이 시작되기 전에 완료되어야 하는 다른 스텝의 id 목록"
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["backend", "web", "mobile", "infra", "docs", "cross-cutting"]
+          },
+          "retries": { "type": "integer", "minimum": 0, "default": 0 },
+          "error_log": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": { "type": "string", "format": "date-time" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          "commit": {
+            "type": ["string", "null"],
+            "description": "이 스텝을 마무리한 git commit SHA"
+          },
+          "artifacts": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "이 스텝으로 생성·수정된 주요 파일 경로"
+          }
+        }
+      }
+    }
+  }
+}

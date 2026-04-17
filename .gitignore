@@ -1,0 +1,24 @@
+# 하네스 레포 자체 개발용 .gitignore
+# (대상 프로젝트용은 templates/gitignore.partial 참조)
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Claude Code 로컬 상태
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 에디터
+.idea/
+.vscode/
+*.swp

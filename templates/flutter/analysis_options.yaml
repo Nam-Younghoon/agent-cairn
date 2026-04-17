@@ -1,0 +1,39 @@
+# 팀 공통 Flutter 린트 설정
+# 프로젝트 루트의 analysis_options.yaml 로 복사.
+
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    # 경고도 에러로 취급하여 CI에서 블록
+    missing_required_param: error
+    missing_return: error
+    todo: info
+
+linter:
+  rules:
+    # 팀 규약: 줄임말·불명확한 네이밍 억제
+    non_constant_identifier_names: true
+    camel_case_types: true
+    camel_case_extensions: true
+
+    # 성능/안전
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_final_locals: true
+    avoid_dynamic_calls: true
+    use_key_in_widget_constructors: true
+
+    # 스타일
+    always_declare_return_types: true
+    require_trailing_commas: true
+    prefer_single_quotes: true
+    sort_child_properties_last: true
+
+    # 미사용 코드 금지
+    unused_element: true
+    unused_import: true
