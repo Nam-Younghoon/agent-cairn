@@ -1,6 +1,6 @@
 # agent-cairn
 
-팀 공통 개발 하네스. Claude Code 기반으로 백엔드(Express)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다.
+여러 프레임워크를 위한 올인원 개발 하네스. 현재는 Claude Code 기반으로 백엔드(Express)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다.
 
 ## 핵심 구성
 
