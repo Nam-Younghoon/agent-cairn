@@ -273,6 +273,70 @@ else
 fi
 
 echo
+echo "===== 4c) AGENTS.md 루트 배포 + CLI 조건부 배포 ====="
+
+# 마커 블록만 뽑아 비교하는 헬퍼
+extract_marker_block() {
+  # stdin 파일 경로 → stdout 마커 블록 내용
+  awk '/<!-- agent-cairn:start -->/,/<!-- agent-cairn:end -->/' "$1"
+}
+
+# (A) --cli=codex 단독: AGENTS.md 존재, CLAUDE.md 부재, .claude/ 부재
+CODEX_ONLY_DIR="/tmp/ht-st-$TS-codex-only"
+mkdir -p "$CODEX_ONLY_DIR"
+if bash scripts/install.sh --cli=codex --stack=express --target="$CODEX_ONLY_DIR" >/dev/null 2>&1; then
+  ok "--cli=codex 단독 설치 성공"
+else
+  fail "--cli=codex 단독 설치 실패"
+fi
+assert_file_exists "codex-only: AGENTS.md" "$CODEX_ONLY_DIR/AGENTS.md"
+assert_file_missing "codex-only: CLAUDE.md 부재" "$CODEX_ONLY_DIR/CLAUDE.md"
+assert_file_missing "codex-only: .claude/settings.json 부재" "$CODEX_ONLY_DIR/.claude/settings.json"
+if grep -q "agent-cairn:start" "$CODEX_ONLY_DIR/AGENTS.md" 2>/dev/null; then
+  ok "codex-only: AGENTS.md 마커 블록 포함"
+else
+  fail "codex-only: AGENTS.md 마커 블록 누락"
+fi
+
+# (B) --cli=claude,codex 혼용: 양쪽 존재 + 마커 블록 본문 일치
+MIX_DIR="/tmp/ht-st-$TS-mix"
+mkdir -p "$MIX_DIR"
+if bash scripts/install.sh --cli=claude,codex --stack=express --target="$MIX_DIR" >/dev/null 2>&1; then
+  ok "--cli=claude,codex 혼용 설치 성공"
+else
+  fail "--cli=claude,codex 혼용 설치 실패"
+fi
+assert_file_exists "mix: CLAUDE.md" "$MIX_DIR/CLAUDE.md"
+assert_file_exists "mix: AGENTS.md" "$MIX_DIR/AGENTS.md"
+assert_file_exists "mix: .claude/settings.json" "$MIX_DIR/.claude/settings.json"
+if [[ -f "$MIX_DIR/CLAUDE.md" && -f "$MIX_DIR/AGENTS.md" ]]; then
+  if diff <(extract_marker_block "$MIX_DIR/CLAUDE.md") \
+          <(extract_marker_block "$MIX_DIR/AGENTS.md") > /dev/null; then
+    ok "mix: CLAUDE.md ↔ AGENTS.md 마커 블록 일치"
+  else
+    fail "mix: CLAUDE.md ↔ AGENTS.md 마커 블록 불일치"
+  fi
+fi
+
+# (C) 기존 AGENTS.md 에 사용자 커스텀이 마커 바깥에 있을 때 보존
+PRESERVE_DIR="/tmp/ht-st-$TS-agents-preserve"
+mkdir -p "$PRESERVE_DIR"
+printf '# 내 AGENTS 커스텀\n\n마커 밖 AGENTS 사용자 문구\n' > "$PRESERVE_DIR/AGENTS.md"
+bash scripts/install.sh --cli=codex --stack=express --target="$PRESERVE_DIR" >/dev/null 2>&1
+if grep -q "마커 밖 AGENTS 사용자 문구" "$PRESERVE_DIR/AGENTS.md"; then
+  ok "AGENTS.md 마커 밖 사용자 컨텐츠 보존"
+else
+  fail "AGENTS.md 마커 밖 사용자 컨텐츠 유실"
+fi
+# 재실행 — 마커 블록만 갱신되고 커스텀 유지
+bash scripts/install.sh --cli=codex --stack=express --target="$PRESERVE_DIR" >/dev/null 2>&1
+if grep -q "마커 밖 AGENTS 사용자 문구" "$PRESERVE_DIR/AGENTS.md"; then
+  ok "AGENTS.md 재설치 후에도 사용자 컨텐츠 보존"
+else
+  fail "AGENTS.md 재설치 시 사용자 컨텐츠 유실"
+fi
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"

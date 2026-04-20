@@ -18,10 +18,12 @@
 #                     .editorconfig 를 배포한다. 기본은 포매터 없음.
 #
 # 동작:
-#   - .claude/ 와 루트 CLAUDE.md 는 항상 --target (리포지토리 루트) 에 설치.
+#   - --cli 에 명시된 CLI 어댑터 자산만 --target (리포지토리 루트) 에 설치한다.
+#     · claude 포함 시: .claude/ 자산 + 루트 CLAUDE.md
+#     · codex 포함 시: 루트 AGENTS.md (+ 이후 스텝에서 .codex/)
 #   - 스택 스펙에 경로가 있으면 해당 경로에도 CLAUDE.md 와 스택별 린트 설정을 추가 설치.
-#   - CLAUDE.md 는 <!-- agent-cairn:start --> ... <!-- agent-cairn:end --> 마커 기반으로
-#     스마트 병합된다. 사용자가 마커 밖에 추가한 내용은 보존된다.
+#   - CLAUDE.md/AGENTS.md 는 <!-- agent-cairn:start --> ... <!-- agent-cairn:end -->
+#     마커 기반으로 스마트 병합된다. 사용자가 마커 밖에 추가한 내용은 보존된다.
 
 set -euo pipefail
 
@@ -170,29 +172,9 @@ merge_claude() {
   python3 "$HARNESS_DIR/scripts/_merge_claude.py" "$target_file" "$source_file" $FORCE_FLAG
 }
 
-# ---- 1) 루트 공통 자산 (.claude/, .gitignore, .env.example, .github/) -----
+# ---- 1) 루트 공통 자산 (CLI 무관: .gitignore / .env.example / PR 템플릿) ----
 
 echo "[install] 루트 공통 자산 배포"
-
-copy_file "$HARNESS_DIR/.claude/settings.json"                   "$TARGET/.claude/settings.json"
-copy_file "$HARNESS_DIR/.claude/hooks/block_dangerous.py"        "$TARGET/.claude/hooks/block_dangerous.py"
-copy_file "$HARNESS_DIR/.claude/hooks/block_secret_files.py"     "$TARGET/.claude/hooks/block_secret_files.py"
-copy_file "$HARNESS_DIR/.claude/patterns/secrets.yaml"           "$TARGET/.claude/patterns/secrets.yaml"
-copy_file "$HARNESS_DIR/.claude/commands/discuss.md"             "$TARGET/.claude/commands/discuss.md"
-copy_file "$HARNESS_DIR/.claude/commands/plan.md"                "$TARGET/.claude/commands/plan.md"
-copy_file "$HARNESS_DIR/.claude/commands/execute.md"             "$TARGET/.claude/commands/execute.md"
-copy_file "$HARNESS_DIR/.claude/commands/ship.md"                "$TARGET/.claude/commands/ship.md"
-copy_file "$HARNESS_DIR/.claude/agents/tdd-tester.md"            "$TARGET/.claude/agents/tdd-tester.md"
-copy_file "$HARNESS_DIR/.claude/agents/parallel-explorer.md"     "$TARGET/.claude/agents/parallel-explorer.md"
-copy_file "$HARNESS_DIR/.claude/agents/pre-commit-reviewer.md"   "$TARGET/.claude/agents/pre-commit-reviewer.md"
-
-# 슬래시 커맨드가 참조하는 문서 템플릿. 대상 프로젝트 안에서 Read 가능해야 한다.
-copy_file "$HARNESS_DIR/templates/__docs/PRD.md"                "$TARGET/.claude/templates/__docs/PRD.md"
-copy_file "$HARNESS_DIR/templates/__docs/ARCHITECTURE.md"       "$TARGET/.claude/templates/__docs/ARCHITECTURE.md"
-copy_file "$HARNESS_DIR/templates/__docs/ADR.md"                "$TARGET/.claude/templates/__docs/ADR.md"
-copy_file "$HARNESS_DIR/templates/__docs/UI_GUIDE.md"           "$TARGET/.claude/templates/__docs/UI_GUIDE.md"
-copy_file "$HARNESS_DIR/templates/__docs/plan.schema.json"      "$TARGET/.claude/templates/__docs/plan.schema.json"
-copy_file "$HARNESS_DIR/templates/__docs/plan.example.json"     "$TARGET/.claude/templates/__docs/plan.example.json"
 
 copy_file "$HARNESS_DIR/templates/github/PULL_REQUEST_TEMPLATE.md" "$TARGET/.github/PULL_REQUEST_TEMPLATE.md"
 
@@ -202,6 +184,33 @@ append_if_missing "$HARNESS_DIR/templates/gitignore.partial" \
 
 if [[ ! -f "$TARGET/.env.example" || $FORCE -eq 1 ]]; then
   copy_file "$HARNESS_DIR/templates/env.example" "$TARGET/.env.example"
+fi
+
+# ---- 1a) Claude 전용 자산 (.claude/) ---------------------------------------
+# CLIS 에 claude 가 포함된 경우에만 배포.
+
+if has_cli claude; then
+  echo "[install] .claude/ 자산 배포 (Claude)"
+
+  copy_file "$HARNESS_DIR/.claude/settings.json"                   "$TARGET/.claude/settings.json"
+  copy_file "$HARNESS_DIR/.claude/hooks/block_dangerous.py"        "$TARGET/.claude/hooks/block_dangerous.py"
+  copy_file "$HARNESS_DIR/.claude/hooks/block_secret_files.py"     "$TARGET/.claude/hooks/block_secret_files.py"
+  copy_file "$HARNESS_DIR/.claude/patterns/secrets.yaml"           "$TARGET/.claude/patterns/secrets.yaml"
+  copy_file "$HARNESS_DIR/.claude/commands/discuss.md"             "$TARGET/.claude/commands/discuss.md"
+  copy_file "$HARNESS_DIR/.claude/commands/plan.md"                "$TARGET/.claude/commands/plan.md"
+  copy_file "$HARNESS_DIR/.claude/commands/execute.md"             "$TARGET/.claude/commands/execute.md"
+  copy_file "$HARNESS_DIR/.claude/commands/ship.md"                "$TARGET/.claude/commands/ship.md"
+  copy_file "$HARNESS_DIR/.claude/agents/tdd-tester.md"            "$TARGET/.claude/agents/tdd-tester.md"
+  copy_file "$HARNESS_DIR/.claude/agents/parallel-explorer.md"     "$TARGET/.claude/agents/parallel-explorer.md"
+  copy_file "$HARNESS_DIR/.claude/agents/pre-commit-reviewer.md"   "$TARGET/.claude/agents/pre-commit-reviewer.md"
+
+  # 슬래시 커맨드가 참조하는 문서 템플릿. 대상 프로젝트 안에서 Read 가능해야 한다.
+  copy_file "$HARNESS_DIR/templates/__docs/PRD.md"                "$TARGET/.claude/templates/__docs/PRD.md"
+  copy_file "$HARNESS_DIR/templates/__docs/ARCHITECTURE.md"       "$TARGET/.claude/templates/__docs/ARCHITECTURE.md"
+  copy_file "$HARNESS_DIR/templates/__docs/ADR.md"                "$TARGET/.claude/templates/__docs/ADR.md"
+  copy_file "$HARNESS_DIR/templates/__docs/UI_GUIDE.md"           "$TARGET/.claude/templates/__docs/UI_GUIDE.md"
+  copy_file "$HARNESS_DIR/templates/__docs/plan.schema.json"      "$TARGET/.claude/templates/__docs/plan.schema.json"
+  copy_file "$HARNESS_DIR/templates/__docs/plan.example.json"     "$TARGET/.claude/templates/__docs/plan.example.json"
 fi
 
 # ---- 2) 스택 스펙 파싱 -----------------------------------------------------
@@ -239,9 +248,9 @@ for entry in "${STACK_ENTRIES[@]}"; do
   esac
 done
 
-# ---- 3) 루트 CLAUDE.md 병합 ------------------------------------------------
+# ---- 3) 루트 규약 문서 병합 (CLI 별 타깃) ---------------------------------
 
-echo "[install] 루트 CLAUDE.md 병합"
+echo "[install] 루트 규약 문서 병합"
 
 tmp_root_content="$(mktemp)"
 {
@@ -268,7 +277,13 @@ tmp_root_content="$(mktemp)"
   fi
 } > "$tmp_root_content"
 
-merge_claude "$TARGET/CLAUDE.md" "$tmp_root_content"
+# Claude: CLAUDE.md / Codex: AGENTS.md — 동일 본문을 CLI 별 타깃에 분배
+if has_cli claude; then
+  merge_claude "$TARGET/CLAUDE.md" "$tmp_root_content"
+fi
+if has_cli codex; then
+  merge_claude "$TARGET/AGENTS.md" "$tmp_root_content"
+fi
 rm -f "$tmp_root_content"
 
 # ---- 4) 스택별 설치 --------------------------------------------------------
