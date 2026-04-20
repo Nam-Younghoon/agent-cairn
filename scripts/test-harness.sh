@@ -500,6 +500,105 @@ else
 fi
 
 echo
+echo "===== 4g) Codex × NestJS / SpringBoot Spotless 조합 ====="
+
+# (G1) --cli=codex --stack=nestjs: AGENTS.md 존재 / NestJS eslint / .claude/ 부재
+CODEX_NEST_DIR="/tmp/ht-st-$TS-codex-nest"
+mkdir -p "$CODEX_NEST_DIR"
+bash scripts/install.sh --cli=codex --stack=nestjs --target="$CODEX_NEST_DIR" >/dev/null 2>&1
+assert_file_exists  "codex-nest: AGENTS.md"        "$CODEX_NEST_DIR/AGENTS.md"
+assert_file_exists  "codex-nest: eslint.config.mjs" "$CODEX_NEST_DIR/eslint.config.mjs"
+assert_file_missing "codex-nest: CLAUDE.md 부재"    "$CODEX_NEST_DIR/CLAUDE.md"
+assert_file_missing "codex-nest: .claude 부재"      "$CODEX_NEST_DIR/.claude/settings.json"
+
+# (G2) --cli=codex --with-spotless --stack=springboot-kotlin
+CODEX_SBK_DIR="/tmp/ht-st-$TS-codex-sbk"
+mkdir -p "$CODEX_SBK_DIR"
+bash scripts/install.sh --cli=codex --with-spotless --stack=springboot-kotlin \
+  --target="$CODEX_SBK_DIR" >/dev/null 2>&1
+assert_file_exists "codex-sbk: AGENTS.md"            "$CODEX_SBK_DIR/AGENTS.md"
+assert_file_exists "codex-sbk: spotless.gradle.kts"  "$CODEX_SBK_DIR/spotless.gradle.kts"
+assert_file_exists "codex-sbk: .editorconfig"        "$CODEX_SBK_DIR/.editorconfig"
+assert_file_exists "codex-sbk: .codex/config.toml"   "$CODEX_SBK_DIR/.codex/config.toml"
+if grep -q "ktfmt" "$CODEX_SBK_DIR/spotless.gradle.kts" 2>/dev/null; then
+  ok "codex-sbk: ktfmt 포함"
+else
+  fail "codex-sbk: ktfmt 누락"
+fi
+
+# (G3) --cli=codex --with-spotless --stack=springboot (Java)
+CODEX_SB_DIR="/tmp/ht-st-$TS-codex-sb"
+mkdir -p "$CODEX_SB_DIR"
+bash scripts/install.sh --cli=codex --with-spotless --stack=springboot \
+  --target="$CODEX_SB_DIR" >/dev/null 2>&1
+assert_file_exists "codex-sb: AGENTS.md"            "$CODEX_SB_DIR/AGENTS.md"
+assert_file_exists "codex-sb: spotless.gradle.kts"  "$CODEX_SB_DIR/spotless.gradle.kts"
+if grep -q "googleJavaFormat" "$CODEX_SB_DIR/spotless.gradle.kts" 2>/dev/null; then
+  ok "codex-sb: googleJavaFormat 포함"
+else
+  fail "codex-sb: googleJavaFormat 누락"
+fi
+
+# (G4) 모노레포 × Codex × --with-spotless: PRD [I] "springboot-kotlin:apps/api-kotlin" 패턴 커버
+CODEX_SBK_MONO_DIR="/tmp/ht-st-$TS-codex-sbk-mono"
+mkdir -p "$CODEX_SBK_MONO_DIR"
+bash scripts/install.sh --cli=codex --with-spotless \
+  --stack=springboot-kotlin:apps/api-kotlin,springboot:apps/api-java \
+  --target="$CODEX_SBK_MONO_DIR" >/dev/null 2>&1
+assert_file_exists "codex-sbk-mono: apps/api-kotlin/AGENTS.md"         "$CODEX_SBK_MONO_DIR/apps/api-kotlin/AGENTS.md"
+assert_file_missing "codex-sbk-mono: apps/api-kotlin/CLAUDE.md 부재"    "$CODEX_SBK_MONO_DIR/apps/api-kotlin/CLAUDE.md"
+assert_file_exists "codex-sbk-mono: apps/api-kotlin/spotless.gradle.kts" "$CODEX_SBK_MONO_DIR/apps/api-kotlin/spotless.gradle.kts"
+assert_file_exists "codex-sbk-mono: apps/api-java/AGENTS.md"           "$CODEX_SBK_MONO_DIR/apps/api-java/AGENTS.md"
+assert_file_exists "codex-sbk-mono: apps/api-java/spotless.gradle.kts"  "$CODEX_SBK_MONO_DIR/apps/api-java/spotless.gradle.kts"
+assert_file_exists "codex-sbk-mono: root .codex/config.toml"           "$CODEX_SBK_MONO_DIR/.codex/config.toml"
+assert_file_missing "codex-sbk-mono: apps/api-kotlin/.codex 부재"       "$CODEX_SBK_MONO_DIR/apps/api-kotlin/.codex/config.toml"
+
+echo
+echo "===== 4h) 멱등성 — 재실행·순차 실행 ====="
+
+# (F1) 동일 명령 2회 연속: 최종 산출물이 예상대로 수렴, 2회째 stdout 에 skip 로그 포함
+#      AGENTS.md 마커 블록 본문이 1회째/2회째 동일(diff 빈 출력)인지까지 검증.
+IDEMP_DIR="/tmp/ht-st-$TS-idemp"
+mkdir -p "$IDEMP_DIR"
+bash scripts/install.sh --cli=codex --stack=express --target="$IDEMP_DIR" >/dev/null 2>&1
+snapshot_first="$(mktemp)"
+extract_marker_block "$IDEMP_DIR/AGENTS.md" > "$snapshot_first"
+second_out="$(bash scripts/install.sh --cli=codex --stack=express --target="$IDEMP_DIR" 2>&1)"
+if grep -q "skip" <<< "$second_out"; then
+  ok "idemp codex×2: 두 번째 실행이 기존 파일을 skip"
+else
+  fail "idemp codex×2: 두 번째 실행이 skip 로그 없음"
+fi
+assert_file_exists "idemp codex×2: AGENTS.md 유지" "$IDEMP_DIR/AGENTS.md"
+assert_file_exists "idemp codex×2: .codex/config.toml 유지" "$IDEMP_DIR/.codex/config.toml"
+if diff "$snapshot_first" <(extract_marker_block "$IDEMP_DIR/AGENTS.md") > /dev/null; then
+  ok "idemp codex×2: AGENTS.md 마커 블록 본문 수렴"
+else
+  fail "idemp codex×2: AGENTS.md 마커 블록 본문이 변경됨"
+fi
+rm -f "$snapshot_first"
+
+# (F2) claude → codex 순차: 양쪽 자산 공존
+SEQ_DIR="/tmp/ht-st-$TS-seq"
+mkdir -p "$SEQ_DIR"
+bash scripts/install.sh --cli=claude --stack=express --target="$SEQ_DIR" >/dev/null 2>&1
+bash scripts/install.sh --cli=codex  --stack=express --target="$SEQ_DIR" >/dev/null 2>&1
+assert_file_exists "seq claude→codex: CLAUDE.md"           "$SEQ_DIR/CLAUDE.md"
+assert_file_exists "seq claude→codex: AGENTS.md"           "$SEQ_DIR/AGENTS.md"
+assert_file_exists "seq claude→codex: .claude/settings.json" "$SEQ_DIR/.claude/settings.json"
+assert_file_exists "seq claude→codex: .codex/config.toml"    "$SEQ_DIR/.codex/config.toml"
+
+# (F3) codex → claude 역순: 양쪽 자산 공존
+SEQ2_DIR="/tmp/ht-st-$TS-seq2"
+mkdir -p "$SEQ2_DIR"
+bash scripts/install.sh --cli=codex  --stack=express --target="$SEQ2_DIR" >/dev/null 2>&1
+bash scripts/install.sh --cli=claude --stack=express --target="$SEQ2_DIR" >/dev/null 2>&1
+assert_file_exists "seq codex→claude: AGENTS.md"           "$SEQ2_DIR/AGENTS.md"
+assert_file_exists "seq codex→claude: CLAUDE.md"           "$SEQ2_DIR/CLAUDE.md"
+assert_file_exists "seq codex→claude: .codex/config.toml"    "$SEQ2_DIR/.codex/config.toml"
+assert_file_exists "seq codex→claude: .claude/settings.json" "$SEQ2_DIR/.claude/settings.json"
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"
