@@ -1,6 +1,6 @@
 # agent-cairn
 
-여러 프레임워크를 위한 올인원 개발 하네스. 현재는 Claude Code 기반으로 백엔드(Express)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다.
+여러 프레임워크를 위한 올인원 개발 하네스. 현재는 Claude Code 기반으로 백엔드(Express·NestJS·SpringBoot Java·SpringBoot Kotlin)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다.
 
 ## 핵심 구성
 
@@ -12,9 +12,9 @@
 | 시크릿 정규식 | `.claude/patterns/secrets.yaml` | AWS/GitHub/Slack/JWT/Stripe/Private Key 등 16종 |
 | 슬래시 커맨드 | `.claude/commands/{discuss,plan,execute,ship}.md` | 4-커맨드 파이프라인 |
 | 서브에이전트 | `.claude/agents/{parallel-explorer,tdd-tester,pre-commit-reviewer}.md` | 탐색·TDD·리뷰 전용 |
-| 스택별 CLAUDE.md | `templates/{express,nextjs,flutter}/CLAUDE.md` | 아키텍처·스크립트·테스트 정책 + 올바른 모양 예시 |
+| 스택별 CLAUDE.md | `templates/{express,nextjs,flutter,nestjs,springboot,springboot-kotlin}/CLAUDE.md` | 아키텍처·스크립트·테스트 정책 + 올바른 모양 예시 |
 | 문서 템플릿 | `templates/__docs/` | PRD / ARCHITECTURE / ADR / UI_GUIDE / plan.schema.json |
-| 린트/포매터 | `templates/node/`, `templates/flutter/analysis_options.yaml` | ESLint(flat) + Prettier, analysis_options |
+| 린트/포매터 | `templates/node/`, `templates/nestjs/eslint.config.mjs`, `templates/flutter/analysis_options.yaml`, `templates/springboot{,-kotlin}/spotless.gradle.kts` | ESLint(flat) + Prettier, NestJS 전용 ESLint, analysis_options, Spotless(옵트인) |
 | PR 템플릿 | `templates/github/PULL_REQUEST_TEMPLATE.md` | 하네스 체크리스트 포함 |
 | 설치 스크립트 | `scripts/install.sh` | 단일·다중·모노레포 스택 지원, 마커 기반 스마트 병합 |
 | 셀프 테스트 | `scripts/test-harness.sh`, `tests/` | pytest + 설치 시나리오 회귀 검사 |
@@ -43,20 +43,28 @@ git clone <이 레포> /tmp/agent-cairn
 
 # 단일 스택
 /tmp/agent-cairn/scripts/install.sh --stack=express --target=/path/to/project
+/tmp/agent-cairn/scripts/install.sh --stack=nestjs --target=/path/to/project
+/tmp/agent-cairn/scripts/install.sh --stack=springboot --target=/path/to/project
+/tmp/agent-cairn/scripts/install.sh --stack=springboot-kotlin --target=/path/to/project
 
 # 한 프로젝트에 여러 스택 (예: 풀스택 개인 프로젝트)
 /tmp/agent-cairn/scripts/install.sh --stack=express,nextjs,flutter --target=/path/to/project
 
+# SpringBoot 에 포매터(Spotless) 옵트인
+/tmp/agent-cairn/scripts/install.sh --stack=springboot-kotlin --with-spotless --target=/path/to/project
+
 # 모노레포 (앱별 경로)
 /tmp/agent-cairn/scripts/install.sh \
-  --stack='express:apps/api,nextjs:apps/web,flutter:apps/mobile' \
+  --stack='express:apps/api,nextjs:apps/web,flutter:apps/mobile,nestjs:apps/api-nest,springboot-kotlin:apps/api-kotlin' \
+  --with-spotless \
   --target=/path/to/monorepo
 ```
 
 옵션:
-- `--stack=<spec>` (필수): 위 세 가지 중 하나.
+- `--stack=<spec>` (필수): `express | nextjs | flutter | nestjs | springboot | springboot-kotlin` 중 하나 또는 콤마 결합. 앱별 경로는 `<stack>:<path>` 로 지정.
 - `--target=<경로>` (기본: 현재 디렉토리).
 - `--force`: 기존 파일 덮어쓰기 허용 (CLAUDE.md 는 마커 구간만 덮어써도 되므로 대부분 불필요).
+- `--with-spotless`: SpringBoot(Java/Kotlin) 스택에 Spotless 포매터 스니펫과 `.editorconfig` 를 배포. 기본은 포매터 없음. 리포 단위 전역 on/off.
 
 설치 후 자동으로 수행되는 것:
 1. `.claude/` (settings, hooks, patterns, commands, agents) 배포.
@@ -79,6 +87,8 @@ git clone <이 레포> /tmp/agent-cairn
 | `curl \| sh`, `wget \| bash` | 검증되지 않은 코드 실행 |
 | `DROP DATABASE` | 환경 무관 |
 | `DROP/ALTER TABLE` + `prod` 식별자 동시 포함 | 운영 DB 스키마 변경 |
+| Flyway `clean` / `flywayClean` / `flyway:clean` | 마이그레이션 도구로 모든 DB 객체를 삭제하는 파괴 명령 |
+| Liquibase `drop-all` / `dropAll` / `liquibase:dropAll` | 마이그레이션 도구로 관리 테이블을 전체 삭제 |
 | `.env`, `.env.production`, `.env.prod`, `.env.staging` 쓰기 | 실 시크릿 유출 방지 (`.env.example/.sample/.template` 은 허용) |
 | 시크릿 패턴 포함 쓰기 | `.claude/patterns/secrets.yaml` 매칭 시 |
 
@@ -96,7 +106,7 @@ python3 -m pytest
 
 ## 팀 내 확장
 
-- **스택 추가**: `templates/<new-stack>/CLAUDE.md` 추가, `install.sh` 의 `validate_stack` 케이스 확장.
+- **스택 추가**: `templates/<new-stack>/CLAUDE.md` 추가, `install.sh` 의 `validate_stack` 케이스 확장. 포매터 등 부가 자산을 옵션으로 두려면 `--with-<flag>` 스타일의 플래그를 추가하고 `install_<stack>_<feature>` 함수를 `HAS_PATH_SPEC` 분기에 연결한다 (예: SpringBoot `--with-spotless`).
 - **규약 수정**: `CLAUDE.md` 본문 수정 후 각 프로젝트에서 `install.sh` 재실행(마커 안쪽만 교체됨).
 - **시크릿 패턴 추가**: `.claude/patterns/secrets.yaml` 에 정규식 추가, `tests/test_block_secret_files.py` 에 테스트 케이스 추가.
 - **새 위험 패턴 차단**: `.claude/hooks/block_dangerous.py` 의 `evaluate()` 에 규칙 추가 + `tests/test_block_dangerous.py` 에 케이스 추가.
