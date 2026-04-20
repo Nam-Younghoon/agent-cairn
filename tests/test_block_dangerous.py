@@ -127,6 +127,66 @@ def test_allows_normal_commands() -> None:
         assert evaluate(cmd).allow, cmd
 
 
+# --- Flyway / Liquibase 파괴 명령 차단 ------------------------------------
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Flyway 계열
+        "flyway clean",
+        "flyway -url=jdbc:postgresql://db/app clean",
+        "./gradlew flywayClean",
+        "./gradlew :api:flywayClean",
+        "./mvnw flyway:clean",
+        "mvn flyway:clean -Pprod",
+        # 대소문자 변형
+        "FLYWAY CLEAN",
+        "./gradlew FlywayClean",
+    ],
+)
+def test_blocks_flyway_clean(command: str) -> None:
+    decision = evaluate(command)
+    assert not decision.allow
+    assert "flyway" in decision.reason.lower()
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "liquibase drop-all",
+        "liquibase dropAll",
+        "liquibase --changeLogFile=db.xml drop-all",
+        "./gradlew liquibaseDropAll",
+        "./mvnw liquibase:dropAll",
+        "mvn liquibase:dropAll",
+    ],
+)
+def test_blocks_liquibase_drop_all(command: str) -> None:
+    decision = evaluate(command)
+    assert not decision.allow
+    assert "liquibase" in decision.reason.lower()
+
+
+def test_allows_safe_migration_commands() -> None:
+    for cmd in [
+        "flyway migrate",
+        "flyway info",
+        "flyway validate",
+        "./gradlew flywayMigrate",
+        "./gradlew flywayInfo",
+        "liquibase update",
+        "liquibase status",
+        "./gradlew liquibaseUpdate",
+        "mvn liquibase:update",
+        # 빌드/테스트 명령에 문자열로 키워드가 섞여도 통과해야 한다
+        "./gradlew build test",
+        "./gradlew clean build",  # gradle clean 은 DB clean 과 무관
+        "npm run clean",
+        "echo 'run flyway migrate next'",
+    ]:
+        assert evaluate(cmd).allow, cmd
+
+
 # --- E2E: 실제 훅 실행 ------------------------------------------------------
 
 def _run_hook(command: str) -> subprocess.CompletedProcess[str]:

@@ -71,6 +71,34 @@ _DROP_DATABASE = re.compile(r"drop\s+database\b", _FLAGS)
 _ALTER_OR_DROP_TABLE = re.compile(r"(?:drop|alter)\s+table\b", _FLAGS)
 _PROD_IDENTIFIER = re.compile(r"prod(?:uction)?", _FLAGS)
 
+# Flyway clean: 데이터베이스의 모든 객체를 삭제하는 파괴 명령.
+# - 바이너리 직접 호출: `flyway clean`, `flyway -url=... clean`
+# - Gradle 태스크: `gradlew flywayClean`, `:module:flywayClean`
+# - Maven 목표: `flyway:clean`, `mvn flyway:clean`, `./mvnw flyway:clean`
+# `gradle clean` (build 디렉토리 정리) 와 구분하기 위해 `flyway` 접두를 반드시 요구.
+# 공백 구분 변형에서 중간 토큰은 `-<option>` 플래그로 제한해 문장 내 오검출을 방지.
+_FLYWAY_CLEAN = re.compile(
+    r"(?:^|[^a-zA-Z0-9])flyway"
+    r"(?:"
+    r"(?:\s+-\S+)*\s+clean"   # 공백 구분 (옵션 플래그만 중간 허용)
+    r"|[:_-]?clean"           # camelCase · kebab · snake · 콜론
+    r")\b",
+    _FLAGS,
+)
+
+# Liquibase drop-all: 관리하는 모든 테이블을 삭제하는 파괴 명령.
+# - `liquibase drop-all`, `liquibase dropAll`, `liquibase -<옵션> drop-all`
+# - Gradle 태스크: `liquibaseDropAll`
+# - Maven 목표: `liquibase:dropAll`, `liquibase:drop-all`
+_LIQUIBASE_DROP_ALL = re.compile(
+    r"(?:^|[^a-zA-Z0-9])liquibase"
+    r"(?:"
+    r"(?:\s+-\S+)*\s+drop[-_]?all"   # 공백 구분
+    r"|[:_-]?drop[-_]?all"            # camelCase · kebab · snake · 콜론
+    r")\b",
+    _FLAGS,
+)
+
 
 def evaluate(command: str) -> Decision:
     """주어진 Bash 명령 문자열에 대한 허용/차단 판정을 반환."""
@@ -108,6 +136,18 @@ def evaluate(command: str) -> Decision:
         return Decision(
             False,
             "운영 DB 대상 스키마 변경(DROP/ALTER TABLE)은 금지됩니다. 마이그레이션 도구를 사용하세요.",
+        )
+
+    if _FLYWAY_CLEAN.search(command):
+        return Decision(
+            False,
+            "Flyway clean 은 모든 DB 객체를 삭제합니다. 마이그레이션은 flyway migrate 를 사용하세요.",
+        )
+
+    if _LIQUIBASE_DROP_ALL.search(command):
+        return Decision(
+            False,
+            "Liquibase drop-all 은 관리하는 모든 테이블을 삭제합니다. 스키마 변경은 liquibase update 를 사용하세요.",
         )
 
     return Decision(allow=True)

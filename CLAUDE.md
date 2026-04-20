@@ -47,7 +47,9 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 ### 2.4 린트/포매터
 - **Node.js (Express/Next.js)**: ESLint + Prettier. `npm run build && npm run lint`가 커밋 전 통과해야 한다.
+- **NestJS**: 전용 `eslint.config.mjs` (공용 Node 설정과 별도). `no-floating-promises`, `no-misused-promises` 를 error 로 유지. 커밋 전 게이트는 동일하게 `npm run build && npm run lint && npm run test`.
 - **Flutter**: `flutter analyze` + `dart format`. 경고 0 유지.
+- **SpringBoot (Java/Kotlin)**: 포매터는 **기본 off**. 도입 팀은 하네스 설치 시 `install.sh --with-spotless` 를 옵트인하고 커밋 전 게이트에 `spotlessCheck` 를 포함시킨다. Java 는 google-java-format, Kotlin 은 ktfmt.
 - TypeScript에서 `any` 금지 → `unknown` 또는 구체 타입 사용.
 
 ### 2.5 환경변수·시크릿
@@ -107,10 +109,12 @@ feat: 사용자 프로필 이미지 업로드 추가
 | --- | --- |
 | 재귀 강제 삭제 | `rm -rf …`, `rm -fr …` |
 | 운영 DB 스키마 변경 | 명령 내 `DROP TABLE` 또는 `ALTER TABLE` + `prod` / `production` 식별자 동시 포함 |
+| Flyway 파괴 명령 | `flyway clean`, `./gradlew flywayClean`, `flyway:clean` 등 (모든 DB 객체 삭제) |
+| Liquibase 파괴 명령 | `liquibase drop-all`, `liquibase dropAll`, `liquibase:dropAll` 등 (관리 테이블 전체 삭제) |
 | 강제 푸시 | `git push --force`, `git push -f` (`--force-with-lease`는 허용) |
 | 하드 리셋 | `git reset --hard` |
 
-신규 기능 개발 중 DB 스키마 변경은 **마이그레이션 도구**(Prisma Migrate, TypeORM Migration, Flyway 등)로만 수행하며, 운영 DB에 직접 ad-hoc SQL을 실행하지 않습니다.
+신규 기능 개발 중 DB 스키마 변경은 **마이그레이션 도구**(Prisma Migrate, TypeORM Migration, Flyway, Liquibase 등)의 **안전한 서브커맨드**(`migrate`, `update`, `info`, `validate`)로만 수행하며, 운영 DB에 직접 ad-hoc SQL 을 실행하거나 `clean`/`drop-all` 같은 파괴 커맨드를 호출하지 않습니다.
 
 ---
 

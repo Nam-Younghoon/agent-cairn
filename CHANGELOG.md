@@ -2,6 +2,20 @@
 
 본 하네스 자체의 변경 이력. Keep-a-Changelog 형식을 따르며, 각 릴리즈에 추가/변경/제거/수정을 명시한다.
 
+## [Unreleased]
+
+### 추가
+- **NestJS 스택 지원** — `templates/nestjs/CLAUDE.md` (모듈/컨트롤러/서비스/도메인/인프라 계층, class-validator + ValidationPipe, @RestControllerAdvice 오류 매핑, Jest + supertest 테스트 정책) 와 전용 `templates/nestjs/eslint.config.mjs` (no-floating-promises·no-misused-promises error, 데코레이터 parameter-properties 허용) 추가. 공용 `templates/node/` 와 별도 유지.
+- **SpringBoot (Java) 스택 지원** — `templates/springboot/CLAUDE.md` (Java 21 + Spring Boot 3.x + Gradle Kotlin DSL, record 기반 도메인, Flyway 마이그레이션, JUnit5 + Mockito + Testcontainers). `install.sh --with-spotless` 옵트인 시 `spotless.gradle.kts` (google-java-format) 와 `.editorconfig` 가 배포된다.
+- **SpringBoot (Kotlin) 스택 지원** — `templates/springboot-kotlin/CLAUDE.md` (Kotlin 1.9+ JVM 21, data class + sealed class, MockK). `--with-spotless` 옵트인 시 ktfmt 기반 스니펫 배포.
+- **`install.sh --with-spotless` 옵트인 플래그** — SpringBoot 계열에서만 의미. 기본 off (포매터 미도입). 리포 단위 전역 on/off.
+- **하네스 훅**: `flyway clean`, `./gradlew flywayClean`, `flyway:clean`, `liquibase drop-all`, `liquibase:dropAll` 등 운영 DB 파괴 명령을 `block_dangerous.py` 에서 물리적으로 차단. 중간 토큰은 `-<옵션>` 플래그로 제한해 문장 속 우연 매칭 방지.
+- `scripts/test-harness.sh`: 신규 스택 3종의 필수 파일 체크, 단일/--with-spotless on/off/모노레포 혼합 시나리오, 잘못된 식별자(`spring-boot`) 거부 검증 추가. `run_scenario` 가 extra_args 를 받도록 확장.
+
+### 변경
+- `install.sh` 사용법 헤더와 마무리 안내에 신규 스택·`--with-spotless` 설명 반영.
+- 루트 `CLAUDE.md` 의 린트/포매터 섹션에 NestJS·SpringBoot(Java/Kotlin) 규약 추가.
+
 ## [0.3.0] — 2026-04-17
 
 ### 변경

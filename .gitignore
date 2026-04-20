@@ -22,3 +22,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# 브랜치 전용 작업 문서 (리모트 푸시 금지)
+__docs/

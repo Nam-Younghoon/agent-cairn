@@ -2,12 +2,18 @@
 # agent-cairn 설치 스크립트
 #
 # 사용법:
-#   ./scripts/install.sh --stack=<stack-spec> [--target=<repo-root>] [--force]
+#   ./scripts/install.sh --stack=<stack-spec> [--target=<repo-root>] [--force] [--with-spotless]
 #
 # stack-spec 형식:
 #   1) 단일 스택            : --stack=express
-#   2) 모노레포(한 루트 다중): --stack=express,nextjs,flutter
-#   3) 모노레포(앱별 경로)   : --stack=express:apps/api,nextjs:apps/web,flutter:apps/mobile
+#   2) 모노레포(한 루트 다중): --stack=express,nextjs,flutter,nestjs
+#   3) 모노레포(앱별 경로)   : --stack=express:apps/api,nestjs:apps/api-nest,springboot:apps/api-java
+#
+# 지원 스택: express | nextjs | flutter | nestjs | springboot | springboot-kotlin
+#
+# 옵션:
+#   --with-spotless : SpringBoot(Java/Kotlin) 스택에 Spotless 포매터 스니펫과
+#                     .editorconfig 를 배포한다. 기본은 포매터 없음.
 #
 # 동작:
 #   - .claude/ 와 루트 CLAUDE.md 는 항상 --target (리포지토리 루트) 에 설치.
@@ -20,14 +26,16 @@ set -euo pipefail
 STACK_SPEC=""
 TARGET="$(pwd)"
 FORCE=0
+WITH_SPOTLESS=0
 
 for arg in "$@"; do
   case $arg in
-    --stack=*)  STACK_SPEC="${arg#*=}" ;;
-    --target=*) TARGET="${arg#*=}" ;;
-    --force)    FORCE=1 ;;
+    --stack=*)       STACK_SPEC="${arg#*=}" ;;
+    --target=*)      TARGET="${arg#*=}" ;;
+    --force)         FORCE=1 ;;
+    --with-spotless) WITH_SPOTLESS=1 ;;
     -h|--help)
-      sed -n '1,25p' "$0"
+      sed -n '1,30p' "$0"
       exit 0
       ;;
     *)
@@ -51,6 +59,7 @@ FORCE_FLAG=""
 echo "[install] harness=$HARNESS_DIR"
 echo "[install] target=$TARGET"
 echo "[install] stack-spec=$STACK_SPEC"
+echo "[install] with-spotless=$([[ $WITH_SPOTLESS -eq 1 ]] && echo on || echo off)"
 
 # ---- 유틸 ------------------------------------------------------------------
 
@@ -79,7 +88,7 @@ append_if_missing() {
 
 validate_stack() {
   case "$1" in
-    express|nextjs|flutter) ;;
+    express|nextjs|flutter|nestjs|springboot|springboot-kotlin) ;;
     *)
       echo "오류: 지원하지 않는 stack: $1" >&2
       exit 1
@@ -94,9 +103,31 @@ install_node_lint() {
   copy_file "$HARNESS_DIR/templates/node/.prettierignore"   "$dst_dir/.prettierignore"
 }
 
+install_nestjs_lint() {
+  # NestJS 는 공용 node 린트 대신 전용 eslint.config.mjs 를 사용한다.
+  local dst_dir="$1"
+  copy_file "$HARNESS_DIR/templates/nestjs/eslint.config.mjs" "$dst_dir/eslint.config.mjs"
+  copy_file "$HARNESS_DIR/templates/node/.prettierrc.json"    "$dst_dir/.prettierrc.json"
+  copy_file "$HARNESS_DIR/templates/node/.prettierignore"     "$dst_dir/.prettierignore"
+}
+
 install_flutter_lint() {
   local dst_dir="$1"
   copy_file "$HARNESS_DIR/templates/flutter/analysis_options.yaml" "$dst_dir/analysis_options.yaml"
+}
+
+install_springboot_spotless() {
+  # Java 템플릿의 Spotless 스니펫 + .editorconfig. --with-spotless 가 켜진 경우만 호출.
+  local dst_dir="$1"
+  copy_file "$HARNESS_DIR/templates/springboot/spotless.gradle.kts" "$dst_dir/spotless.gradle.kts"
+  copy_file "$HARNESS_DIR/templates/springboot/.editorconfig"       "$dst_dir/.editorconfig"
+}
+
+install_springboot_kotlin_spotless() {
+  # Kotlin 템플릿의 Spotless 스니펫 + .editorconfig. --with-spotless 가 켜진 경우만 호출.
+  local dst_dir="$1"
+  copy_file "$HARNESS_DIR/templates/springboot-kotlin/spotless.gradle.kts" "$dst_dir/spotless.gradle.kts"
+  copy_file "$HARNESS_DIR/templates/springboot-kotlin/.editorconfig"       "$dst_dir/.editorconfig"
 }
 
 merge_claude() {
@@ -145,7 +176,10 @@ IFS=',' read -r -a STACK_ENTRIES <<< "$STACK_SPEC"
 declare -a STACKS
 declare -a PATHS
 ANY_NODE=0
+ANY_NESTJS=0
 ANY_FLUTTER=0
+ANY_SPRING_JAVA=0
+ANY_SPRING_KOTLIN=0
 HAS_PATH_SPEC=0
 
 for entry in "${STACK_ENTRIES[@]}"; do
@@ -162,8 +196,11 @@ for entry in "${STACK_ENTRIES[@]}"; do
   STACKS+=("$stack")
   PATHS+=("$sub_path")
   case "$stack" in
-    express|nextjs) ANY_NODE=1 ;;
-    flutter)        ANY_FLUTTER=1 ;;
+    express|nextjs)     ANY_NODE=1 ;;
+    nestjs)             ANY_NESTJS=1 ;;
+    flutter)            ANY_FLUTTER=1 ;;
+    springboot)         ANY_SPRING_JAVA=1 ;;
+    springboot-kotlin)  ANY_SPRING_KOTLIN=1 ;;
   esac
 done
 
@@ -202,11 +239,20 @@ rm -f "$tmp_root_content"
 # ---- 4) 스택별 설치 --------------------------------------------------------
 
 if [[ $HAS_PATH_SPEC -eq 0 ]]; then
-  # 루트 1곳에 린트 설정 설치
-  [[ $ANY_NODE -eq 1 ]]    && install_node_lint "$TARGET"
+  # 루트 1곳에 린트/포매터 설정 설치
+  if [[ $ANY_NODE -eq 1 ]]; then
+    install_node_lint "$TARGET"
+  elif [[ $ANY_NESTJS -eq 1 ]]; then
+    # NestJS 만 설치하는 경우 전용 eslint.config.mjs 를 사용한다.
+    install_nestjs_lint "$TARGET"
+  fi
   [[ $ANY_FLUTTER -eq 1 ]] && install_flutter_lint "$TARGET"
+  if [[ $WITH_SPOTLESS -eq 1 ]]; then
+    [[ $ANY_SPRING_JAVA -eq 1 ]]   && install_springboot_spotless "$TARGET"
+    [[ $ANY_SPRING_KOTLIN -eq 1 ]] && install_springboot_kotlin_spotless "$TARGET"
+  fi
 else
-  # 모노레포: 경로별 CLAUDE.md + 경로별 린트 설정
+  # 모노레포: 경로별 CLAUDE.md + 경로별 린트/포매터 설정
   for i in "${!STACKS[@]}"; do
     stack="${STACKS[$i]}"
     sub_path="${PATHS[$i]}"
@@ -215,8 +261,15 @@ else
     echo "[install] 앱 설치 ($stack → $sub_path)"
     merge_claude "$app_dir/CLAUDE.md" "$HARNESS_DIR/templates/$stack/CLAUDE.md"
     case "$stack" in
-      express|nextjs) install_node_lint "$app_dir" ;;
-      flutter)        install_flutter_lint "$app_dir" ;;
+      express|nextjs)     install_node_lint "$app_dir" ;;
+      nestjs)             install_nestjs_lint "$app_dir" ;;
+      flutter)            install_flutter_lint "$app_dir" ;;
+      springboot)
+        [[ $WITH_SPOTLESS -eq 1 ]] && install_springboot_spotless "$app_dir"
+        ;;
+      springboot-kotlin)
+        [[ $WITH_SPOTLESS -eq 1 ]] && install_springboot_kotlin_spotless "$app_dir"
+        ;;
     esac
   done
 fi
@@ -237,8 +290,17 @@ EOF
 if [[ $ANY_NODE -eq 1 ]]; then
   echo "  Node:     npm i -D eslint typescript-eslint @eslint/js eslint-config-prettier prettier vitest"
 fi
+if [[ $ANY_NESTJS -eq 1 ]]; then
+  echo "  NestJS:   npm i -D eslint typescript-eslint @eslint/js eslint-config-prettier prettier jest @nestjs/testing"
+fi
 if [[ $ANY_FLUTTER -eq 1 ]]; then
   echo "  Flutter:  dev_dependencies 에 flutter_lints 추가 후 flutter pub get"
+fi
+if [[ $ANY_SPRING_JAVA -eq 1 || $ANY_SPRING_KOTLIN -eq 1 ]]; then
+  echo "  SpringBoot: Gradle Kotlin DSL 기본. 커밋 전 게이트: ./gradlew build test"
+  if [[ $WITH_SPOTLESS -eq 1 ]]; then
+    echo "              Spotless 옵트인 활성화 — 게이트에 spotlessCheck 를 포함하세요."
+  fi
 fi
 echo
 echo "훅 테스트: python3 -m pytest (하네스 레포에서)"
