@@ -12,6 +12,8 @@
 # 지원 스택: express | nextjs | flutter | nestjs | springboot | springboot-kotlin
 #
 # 옵션:
+#   --cli=<list>    : 배포할 CLI 어댑터 (claude | codex, 콤마 결합 가능).
+#                     기본값: claude. 예: --cli=codex 또는 --cli=claude,codex
 #   --with-spotless : SpringBoot(Java/Kotlin) 스택에 Spotless 포매터 스니펫과
 #                     .editorconfig 를 배포한다. 기본은 포매터 없음.
 #
@@ -27,15 +29,18 @@ STACK_SPEC=""
 TARGET="$(pwd)"
 FORCE=0
 WITH_SPOTLESS=0
+CLI_SPEC="claude"  # 기본값. 허용값: claude | codex (콤마 결합 가능)
 
 for arg in "$@"; do
   case $arg in
     --stack=*)       STACK_SPEC="${arg#*=}" ;;
     --target=*)      TARGET="${arg#*=}" ;;
+    --cli=*)         CLI_SPEC="${arg#*=}" ;;
     --force)         FORCE=1 ;;
     --with-spotless) WITH_SPOTLESS=1 ;;
     -h|--help)
-      sed -n '1,30p' "$0"
+      # 헤더 주석만 출력: set -euo 라인을 만나면 종료
+      sed -n '/^set -euo/q;p' "$0"
       exit 0
       ;;
     *)
@@ -50,6 +55,35 @@ if [[ -z "$STACK_SPEC" ]]; then
   exit 1
 fi
 
+# --cli 파싱 + 허용값 검증
+if [[ -z "${CLI_SPEC// /}" ]]; then
+  echo "오류: --cli 값이 비어 있습니다. (허용: claude, codex / 콤마 결합)" >&2
+  exit 1
+fi
+IFS=',' read -r -a CLIS <<< "$CLI_SPEC"
+for cli in "${CLIS[@]}"; do
+  case "$cli" in
+    claude|codex) ;;
+    "")
+      echo "오류: --cli 값에 빈 항목이 포함되어 있습니다." >&2
+      exit 1
+      ;;
+    *)
+      echo "오류: 지원하지 않는 --cli 값: '$cli' (허용: claude, codex)" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# 이후 스텝에서 CLI 별 배포 분기에 사용.
+has_cli() {
+  local needle="$1"
+  for c in "${CLIS[@]}"; do
+    [[ "$c" == "$needle" ]] && return 0
+  done
+  return 1
+}
+
 HARNESS_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 mkdir -p "$TARGET"
 TARGET="$(cd "$TARGET" && pwd)"
@@ -59,6 +93,7 @@ FORCE_FLAG=""
 echo "[install] harness=$HARNESS_DIR"
 echo "[install] target=$TARGET"
 echo "[install] stack-spec=$STACK_SPEC"
+echo "[install] cli=${CLIS[*]}"
 echo "[install] with-spotless=$([[ $WITH_SPOTLESS -eq 1 ]] && echo on || echo off)"
 
 # ---- 유틸 ------------------------------------------------------------------

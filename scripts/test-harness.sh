@@ -201,6 +201,78 @@ else
 fi
 
 echo
+echo "===== 4b) --cli 플래그 파싱 ====="
+# --cli 미지정: 기본값 claude 로 로그 출력
+CLI_DEFAULT_DIR="/tmp/ht-st-$TS-cli-default"
+mkdir -p "$CLI_DEFAULT_DIR"
+if out="$(bash scripts/install.sh --stack=express --target="$CLI_DEFAULT_DIR" 2>&1)"; then
+  if grep -q "cli=claude" <<< "$out"; then
+    ok "cli 기본값 claude 로그 노출"
+  else
+    fail "cli 기본값 로그 누락"
+  fi
+else
+  fail "--cli 미지정 설치 실패"
+fi
+
+# --cli=codex 단독 — 파싱만 성공해야 함 (자산 배포는 이후 스텝)
+CLI_CODEX_DIR="/tmp/ht-st-$TS-cli-codex"
+mkdir -p "$CLI_CODEX_DIR"
+if out="$(bash scripts/install.sh --cli=codex --stack=express --target="$CLI_CODEX_DIR" 2>&1)"; then
+  ok "--cli=codex 파싱 통과"
+  if grep -q "cli=codex" <<< "$out"; then
+    ok "--cli=codex 로그 노출"
+  else
+    fail "--cli=codex 로그 누락"
+  fi
+else
+  fail "--cli=codex 가 정상 종료되지 않음"
+fi
+
+# --cli 콤마 결합 — claude,codex
+CLI_MULTI_DIR="/tmp/ht-st-$TS-cli-multi"
+mkdir -p "$CLI_MULTI_DIR"
+if out="$(bash scripts/install.sh --cli=claude,codex --stack=express --target="$CLI_MULTI_DIR" 2>&1)"; then
+  ok "--cli=claude,codex 파싱 통과"
+  if grep -Eq "cli=claude[, ]codex" <<< "$out"; then
+    ok "--cli=claude,codex 로그 노출"
+  else
+    fail "--cli=claude,codex 로그 누락"
+  fi
+else
+  fail "--cli=claude,codex 가 정상 종료되지 않음"
+fi
+
+# --cli=bogus — 비정상 종료
+CLI_INVALID_DIR="/tmp/ht-st-$TS-cli-invalid"
+mkdir -p "$CLI_INVALID_DIR"
+if bash scripts/install.sh --cli=bogus --stack=express --target="$CLI_INVALID_DIR" >/dev/null 2>&1; then
+  fail "--cli=bogus 가 잘못 통과됨"
+else
+  ok "--cli=bogus 거부 확인"
+fi
+
+# --cli= (빈 값) — 비정상 종료 + 친절한 에러 메시지
+CLI_EMPTY_DIR="/tmp/ht-st-$TS-cli-empty"
+mkdir -p "$CLI_EMPTY_DIR"
+if err="$(bash scripts/install.sh --cli= --stack=express --target="$CLI_EMPTY_DIR" 2>&1)"; then
+  fail "--cli= (빈값) 이 잘못 통과됨"
+else
+  if grep -q "unbound variable" <<< "$err"; then
+    fail "--cli= (빈값) 이 unbound variable 로 터짐 (친절한 메시지 아님)"
+  else
+    ok "--cli= (빈값) 거부 + 친절한 에러 메시지"
+  fi
+fi
+
+# --help 출력에 --cli 언급
+if bash scripts/install.sh --help 2>&1 | grep -q -- "--cli"; then
+  ok "--help 에 --cli 설명 포함"
+else
+  fail "--help 에 --cli 설명 누락"
+fi
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"
