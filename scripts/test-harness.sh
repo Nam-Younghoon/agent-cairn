@@ -66,6 +66,7 @@ required=(
   "templates/env.example"
   "scripts/install.sh"
   "scripts/_merge_claude.py"
+  ".codex/config.toml"
 )
 for f in "${required[@]}"; do
   if [[ -f "$f" ]]; then
@@ -335,6 +336,68 @@ if grep -q "마커 밖 AGENTS 사용자 문구" "$PRESERVE_DIR/AGENTS.md"; then
 else
   fail "AGENTS.md 재설치 시 사용자 컨텐츠 유실"
 fi
+
+echo
+echo "===== 4d) .codex/config.toml + gitignore 선제 방어 ====="
+
+# 재사용: CODEX_ONLY_DIR 는 4c 에서 생성됨 (--cli=codex --stack=express)
+assert_file_exists "codex-only: .codex/config.toml" "$CODEX_ONLY_DIR/.codex/config.toml"
+
+# 핵심 키 3종 포함
+for key in "approval_policy" "sandbox_mode" "network_access"; do
+  if grep -q "^$key" "$CODEX_ONLY_DIR/.codex/config.toml" 2>/dev/null; then
+    ok "codex-only config.toml: '$key' 키 포함"
+  else
+    fail "codex-only config.toml: '$key' 키 누락"
+  fi
+done
+
+# 기본값 검증 (하네스 기본 권장값 고정)
+if grep -q 'approval_policy *= *"on-request"' "$CODEX_ONLY_DIR/.codex/config.toml"; then
+  ok "codex-only: approval_policy=on-request"
+else
+  fail "codex-only: approval_policy 기본값 불일치"
+fi
+if grep -q 'sandbox_mode *= *"workspace-write"' "$CODEX_ONLY_DIR/.codex/config.toml"; then
+  ok "codex-only: sandbox_mode=workspace-write"
+else
+  fail "codex-only: sandbox_mode 기본값 불일치"
+fi
+if grep -q 'network_access *= *true' "$CODEX_ONLY_DIR/.codex/config.toml"; then
+  ok "codex-only: network_access=true"
+else
+  fail "codex-only: network_access 기본값 불일치"
+fi
+
+# .gitignore 에 Codex 선제 방어 블록 포함
+for line in ".codex/sessions/" ".codex/history" ".codex/cache/" ".codex/config.local.toml"; do
+  if grep -qF "$line" "$CODEX_ONLY_DIR/.gitignore" 2>/dev/null; then
+    ok "codex-only .gitignore: '$line' 포함"
+  else
+    fail "codex-only .gitignore: '$line' 누락"
+  fi
+done
+# 화이트리스트 주석 확인
+if grep -qF '!.codex/config.toml' "$CODEX_ONLY_DIR/.gitignore" 2>/dev/null; then
+  ok "codex-only .gitignore: '!.codex/config.toml' 예외 포함"
+else
+  fail "codex-only .gitignore: '!.codex/config.toml' 예외 누락"
+fi
+
+# --cli=claude 단독 시 .codex/ 부재
+CLAUDE_ONLY_DIR="/tmp/ht-st-$TS-claude-only"
+mkdir -p "$CLAUDE_ONLY_DIR"
+bash scripts/install.sh --cli=claude --stack=express --target="$CLAUDE_ONLY_DIR" >/dev/null 2>&1
+assert_file_missing "claude-only: .codex/config.toml 부재" "$CLAUDE_ONLY_DIR/.codex/config.toml"
+
+# 모노레포 + --cli=codex: 앱 경로에 .codex/ 부재 (루트에만 배포)
+CODEX_MONO_DIR="/tmp/ht-st-$TS-codex-mono"
+mkdir -p "$CODEX_MONO_DIR"
+bash scripts/install.sh --cli=codex --stack=express:apps/api,nextjs:apps/web \
+  --target="$CODEX_MONO_DIR" >/dev/null 2>&1
+assert_file_exists "codex-mono: root .codex/config.toml" "$CODEX_MONO_DIR/.codex/config.toml"
+assert_file_missing "codex-mono: apps/api/.codex/config.toml 부재" "$CODEX_MONO_DIR/apps/api/.codex/config.toml"
+assert_file_missing "codex-mono: apps/web/.codex/config.toml 부재" "$CODEX_MONO_DIR/apps/web/.codex/config.toml"
 
 echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="

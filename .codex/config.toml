@@ -1,0 +1,35 @@
+# agent-cairn 하네스 기본 Codex CLI 설정.
+#
+# 이 파일은 install.sh 가 `--cli=codex` 포함 실행 시 소비자 프로젝트의
+# `.codex/config.toml` 로 배포한다. 보수적으로 운영하려면 아래 주석의
+# 값으로 재정의하세요.
+#
+# 프로젝트 trust:
+#   Codex 는 untrusted 프로젝트의 `.codex/config.toml` 을 로드하지 않습니다.
+#   최초 1회 `codex` CLI UI 에서 trust 를 승격하거나, 아래 블록을
+#   `~/.codex/config.toml` 에 복사·수정해주세요.
+#
+#   [projects."<프로젝트 절대경로>"]
+#   trust_level = "trusted"
+
+# ---- 승인 정책 -------------------------------------------------------------
+# "on-request" — 권장: 샌드박스 경계를 넘는 명령만 승인 요청 (매 명령 승인 아님).
+# "untrusted"  — 엄격: 대부분의 명령에 승인 요청. 사용성 저하 감수.
+# "never"      — 비권장: 위험 명령이 자동 통과됨.
+approval_policy = "on-request"
+
+# ---- 샌드박스 모드 ---------------------------------------------------------
+# "workspace-write"    — 권장: 프로젝트 디렉토리 쓰기 허용, 경계 밖은 승인 요청.
+# "read-only"          — 보수: 편집 불가 (코드 수정 작업과 충돌).
+# "danger-full-access" — 비권장: 샌드박스 제거.
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+# 네트워크 접근 — 패키지 관리자(npm/pip/gradle) 와 git 원격 연동을 위해 기본 허용.
+# 보수적으로 차단하려면 false 로 설정하세요 (설치/푸시마다 승인 요청됨).
+network_access = true
+
+# 기본적으로 /tmp 와 $TMPDIR 은 쓰기 허용됨. 정책에 따라 제외:
+# exclude_slash_tmp = false
+# exclude_tmpdir_env_var = false
+# writable_roots = []

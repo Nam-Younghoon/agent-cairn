@@ -14,3 +14,15 @@ __docs/
 
 # 에이전트 개인 설정
 .claude/settings.local.json
+
+# Codex CLI 로컬 런타임/개인 상태 (세션·히스토리·캐시·로그)
+# 토큰이나 대화 내용이 실수로 커밋되지 않도록 선제 방어.
+# 팀 공통 자산 .codex/config.toml 과 .codex/prompts/ 는 커밋 대상이므로 예외 처리.
+.codex/sessions/
+.codex/history*
+.codex/cache/
+.codex/*.log
+.codex/config.local.toml
+# 화이트리스트: 팀 공통 자산이 향후 상위 패턴 추가로 배제되는 사고 방지.
+!.codex/config.toml
+!.codex/prompts/

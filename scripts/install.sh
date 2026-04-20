@@ -213,6 +213,15 @@ if has_cli claude; then
   copy_file "$HARNESS_DIR/templates/__docs/plan.example.json"     "$TARGET/.claude/templates/__docs/plan.example.json"
 fi
 
+# ---- 1b) Codex 전용 자산 (.codex/) ------------------------------------------
+# CLIS 에 codex 가 포함된 경우에만 배포. 타깃 리포지토리 루트에만 1회 배포한다
+# (Codex 는 git root 부터 walk 하므로 모노레포 앱 경로에는 중복 배포하지 않음).
+
+if has_cli codex; then
+  echo "[install] .codex/ 자산 배포 (Codex)"
+  copy_file "$HARNESS_DIR/.codex/config.toml" "$TARGET/.codex/config.toml"
+fi
+
 # ---- 2) 스택 스펙 파싱 -----------------------------------------------------
 
 IFS=',' read -r -a STACK_ENTRIES <<< "$STACK_SPEC"
