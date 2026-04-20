@@ -105,6 +105,9 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 아래 명령은 하네스 훅(`.claude/settings.json`의 `PreToolUse`)에 의해 **자동 차단**됩니다. 에이전트의 약속이 아니라 물리적 차단이며, 어떠한 우회 시도도 허용하지 않습니다.
 
+> **CLI 별 유효 범위 (중요)**
+> 이 하드락은 **Claude Code 세션에서만 물리적으로 차단**됩니다. **Codex CLI 세션**에서는 `.codex/config.toml` 의 `approval_policy="on-request"` + `sandbox_mode="workspace-write"` 조합(+ `network_access=true`)으로만 보호되며, 아래 금지 대상을 사용자 승인 한 번으로 통과시킬 수 있습니다. 특히 **`.env`/시크릿 문자열 쓰기 차단** 은 Codex 세션에서 감지되지 않으므로, Codex 에서 시크릿을 다룰 때는 각별히 주의하고 커밋 전 `.gitignore` 와 `block_secret_files.py` 동등 검사를 수동으로 수행하세요. 자세한 배경은 `__docs/ADR-002.md` / `__docs/ADR-005.md` 참조.
+
 | 금지 대상 | 차단 대상 명령 예시 |
 | --- | --- |
 | 재귀 강제 삭제 | `rm -rf …`, `rm -fr …` |
@@ -119,7 +122,21 @@ feat: 사용자 프로필 이미지 업로드 추가
 ---
 
 ## 5. 참고
+
+### Claude Code
 - `.claude/commands/discuss.md` — `/discuss` 슬래시 커맨드 정의
 - `.claude/agents/` — 병렬 탐색·TDD·리뷰 전용 서브에이전트
-- `templates/` — 프로젝트 유형별 시작 템플릿
-- `scripts/install.sh` — 신규 프로젝트에 하네스 주입
+- `.claude/hooks/`, `.claude/patterns/secrets.yaml` — 위험 명령 / 시크릿 쓰기 하드락
+
+### Codex CLI (ADR-001, ADR-004, ADR-005)
+- `.codex/prompts/{discuss,plan,execute,ship}.md` — Claude 커맨드와 동일 이름·동일 흐름.
+  Claude 서브에이전트(parallel-explorer/tdd-tester/pre-commit-reviewer) 호출 지점을
+  `## 인라인 가이드 —` 섹션으로 치환해 Codex 단일 세션에서 직접 수행.
+- `.codex/config.toml` — `approval_policy="on-request"` + `sandbox_mode="workspace-write"` +
+  `network_access=true` 기본값. 보수 모드 재정의 예시 주석 포함.
+- 슬래시 커맨드 자동 바인딩은 본 사이클에서 실측하지 않음. 실패 시 `AGENTS.md` 에
+  `@.codex/prompts/<name>.md 의 절차를 따라 진행` 같은 파일 참조로 fallback 가능.
+
+### 공통
+- `templates/` — 프로젝트 유형별 시작 템플릿 (Claude `CLAUDE.md` 와 Codex `AGENTS.md` 공용 본문)
+- `scripts/install.sh` — 신규 프로젝트에 하네스 주입. `--cli=<list>` 로 배포 대상 CLI 선택 (기본값 `claude`, `claude,codex` 혼용 가능)
