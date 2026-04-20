@@ -67,6 +67,10 @@ required=(
   "scripts/install.sh"
   "scripts/_merge_claude.py"
   ".codex/config.toml"
+  ".codex/prompts/discuss.md"
+  ".codex/prompts/plan.md"
+  ".codex/prompts/execute.md"
+  ".codex/prompts/ship.md"
 )
 for f in "${required[@]}"; do
   if [[ -f "$f" ]]; then
@@ -398,6 +402,43 @@ bash scripts/install.sh --cli=codex --stack=express:apps/api,nextjs:apps/web \
 assert_file_exists "codex-mono: root .codex/config.toml" "$CODEX_MONO_DIR/.codex/config.toml"
 assert_file_missing "codex-mono: apps/api/.codex/config.toml 부재" "$CODEX_MONO_DIR/apps/api/.codex/config.toml"
 assert_file_missing "codex-mono: apps/web/.codex/config.toml 부재" "$CODEX_MONO_DIR/apps/web/.codex/config.toml"
+
+echo
+echo "===== 4e) .codex/prompts/*.md 배포 + 인라인 가이드 ====="
+
+# 4d 에서 이미 생성된 CODEX_ONLY_DIR 재사용
+for cmd in discuss plan execute ship; do
+  assert_file_exists "codex-only: prompts/$cmd.md" "$CODEX_ONLY_DIR/.codex/prompts/$cmd.md"
+done
+
+# 각 프롬프트에 인라인 가이드 섹션 최소 1개 포함
+for cmd in discuss plan execute ship; do
+  if grep -q "^## 인라인 가이드" "$CODEX_ONLY_DIR/.codex/prompts/$cmd.md" 2>/dev/null; then
+    ok "codex-only: prompts/$cmd.md 에 인라인 가이드 섹션 포함"
+  else
+    fail "codex-only: prompts/$cmd.md 에 인라인 가이드 섹션 누락"
+  fi
+done
+
+# execute.md 는 탐색/TDD/리뷰 3종 모두 포함해야 함
+exec_md="$CODEX_ONLY_DIR/.codex/prompts/execute.md"
+for guide in "병렬 탐색" "실패 테스트 선 작성" "커밋 전 리뷰"; do
+  if grep -qF "## 인라인 가이드 — $guide" "$exec_md" 2>/dev/null; then
+    ok "codex-only: execute.md 의 '$guide' 가이드 포함"
+  else
+    fail "codex-only: execute.md 의 '$guide' 가이드 누락"
+  fi
+done
+
+# 모노레포 시나리오: 앱 경로에 prompts 중복 배포되지 않음
+for cmd in discuss plan execute ship; do
+  assert_file_missing "codex-mono: apps/api/.codex/prompts/$cmd.md 부재" \
+    "$CODEX_MONO_DIR/apps/api/.codex/prompts/$cmd.md"
+done
+
+# --cli=claude 단독 시 .codex/prompts 부재
+assert_file_missing "claude-only: .codex/prompts/discuss.md 부재" \
+  "$CLAUDE_ONLY_DIR/.codex/prompts/discuss.md"
 
 echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="

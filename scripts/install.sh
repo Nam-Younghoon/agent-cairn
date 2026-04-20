@@ -219,7 +219,11 @@ fi
 
 if has_cli codex; then
   echo "[install] .codex/ 자산 배포 (Codex)"
-  copy_file "$HARNESS_DIR/.codex/config.toml" "$TARGET/.codex/config.toml"
+  copy_file "$HARNESS_DIR/.codex/config.toml"         "$TARGET/.codex/config.toml"
+  copy_file "$HARNESS_DIR/.codex/prompts/discuss.md"  "$TARGET/.codex/prompts/discuss.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/plan.md"     "$TARGET/.codex/prompts/plan.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/execute.md"  "$TARGET/.codex/prompts/execute.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/ship.md"     "$TARGET/.codex/prompts/ship.md"
 fi
 
 # ---- 2) 스택 스펙 파싱 -----------------------------------------------------
