@@ -47,6 +47,14 @@ required=(
   "templates/node/eslint.config.mjs"
   "templates/node/.prettierrc.json"
   "templates/node/.prettierignore"
+  "templates/nestjs/CLAUDE.md"
+  "templates/nestjs/eslint.config.mjs"
+  "templates/springboot/CLAUDE.md"
+  "templates/springboot/spotless.gradle.kts"
+  "templates/springboot/.editorconfig"
+  "templates/springboot-kotlin/CLAUDE.md"
+  "templates/springboot-kotlin/spotless.gradle.kts"
+  "templates/springboot-kotlin/.editorconfig"
   "templates/__docs/PRD.md"
   "templates/__docs/ARCHITECTURE.md"
   "templates/__docs/ADR.md"
@@ -85,9 +93,10 @@ scenarios=(
 )
 
 run_scenario() {
-  local spec="$1" target="$2" label="$3"
+  local spec="$1" target="$2" label="$3" extra_args="${4:-}"
   mkdir -p "$target"
-  if bash scripts/install.sh --stack="$spec" --target="$target" >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  if bash scripts/install.sh --stack="$spec" --target="$target" $extra_args >/dev/null 2>&1; then
     ok "install $label"
   else
     fail "install $label 실패"
@@ -116,9 +125,80 @@ run_scenario() {
   done
 }
 
+assert_file_exists() {
+  local label="$1" path="$2"
+  if [[ -f "$path" ]]; then
+    ok "$label: $path 존재"
+  else
+    fail "$label: $path 미생성"
+  fi
+}
+
+assert_file_missing() {
+  local label="$1" path="$2"
+  if [[ ! -e "$path" ]]; then
+    ok "$label: $path 미생성 (기대)"
+  else
+    fail "$label: $path 가 생성되어선 안 됨"
+  fi
+}
+
 run_scenario "express" "/tmp/ht-st-$TS-single" "single(express)"
 run_scenario "express,nextjs,flutter" "/tmp/ht-st-$TS-multi" "multi(express,nextjs,flutter)"
 run_scenario "express:apps/api,nextjs:apps/web,flutter:apps/mobile" "/tmp/ht-st-$TS-mono" "mono(apps/*)"
+
+# 신규 스택: 단일 설치
+run_scenario "nestjs" "/tmp/ht-st-$TS-nestjs" "single(nestjs)"
+assert_file_exists "single(nestjs)" "/tmp/ht-st-$TS-nestjs/eslint.config.mjs"
+
+run_scenario "springboot" "/tmp/ht-st-$TS-sb-java" "single(springboot)"
+assert_file_missing "single(springboot) no-spotless" "/tmp/ht-st-$TS-sb-java/spotless.gradle.kts"
+assert_file_missing "single(springboot) no-spotless" "/tmp/ht-st-$TS-sb-java/.editorconfig"
+
+run_scenario "springboot-kotlin" "/tmp/ht-st-$TS-sb-kt" "single(springboot-kotlin)"
+assert_file_missing "single(springboot-kotlin) no-spotless" "/tmp/ht-st-$TS-sb-kt/spotless.gradle.kts"
+
+# --with-spotless 옵트인: Java + Kotlin 동시 설치
+run_scenario "springboot,springboot-kotlin" "/tmp/ht-st-$TS-sb-opt" \
+  "multi(springboot,springboot-kotlin) --with-spotless" "--with-spotless"
+assert_file_exists "with-spotless" "/tmp/ht-st-$TS-sb-opt/spotless.gradle.kts"
+assert_file_exists "with-spotless" "/tmp/ht-st-$TS-sb-opt/.editorconfig"
+if grep -q "google-java-format\|googleJavaFormat\|ktfmt" "/tmp/ht-st-$TS-sb-opt/spotless.gradle.kts"; then
+  ok "with-spotless: spotless.gradle.kts 본문에 포매터 식별 문자열 포함"
+else
+  fail "with-spotless: spotless.gradle.kts 본문이 비었거나 포매터 식별 불가"
+fi
+
+# 모노레포 + --with-spotless: 각 앱 경로에 언어별 스니펫 배포
+MONO_DIR="/tmp/ht-st-$TS-mono-opt"
+run_scenario \
+  "springboot:apps/api-java,springboot-kotlin:apps/api-kotlin,nestjs:apps/api-nest" \
+  "$MONO_DIR" \
+  "mono(springboot Java/Kotlin + nestjs) --with-spotless" \
+  "--with-spotless"
+assert_file_exists "mono --with-spotless (Java)"   "$MONO_DIR/apps/api-java/spotless.gradle.kts"
+assert_file_exists "mono --with-spotless (Kotlin)" "$MONO_DIR/apps/api-kotlin/spotless.gradle.kts"
+assert_file_missing "mono NestJS no-spotless"      "$MONO_DIR/apps/api-nest/spotless.gradle.kts"
+assert_file_exists "mono NestJS 전용 eslint"       "$MONO_DIR/apps/api-nest/eslint.config.mjs"
+if grep -q "ktfmt" "$MONO_DIR/apps/api-kotlin/spotless.gradle.kts"; then
+  ok "mono Kotlin: ktfmt 포함"
+else
+  fail "mono Kotlin: ktfmt 누락"
+fi
+if grep -q "googleJavaFormat" "$MONO_DIR/apps/api-java/spotless.gradle.kts"; then
+  ok "mono Java: googleJavaFormat 포함"
+else
+  fail "mono Java: googleJavaFormat 누락"
+fi
+
+# 잘못된 식별자는 거부해야 한다
+INVALID_DIR="/tmp/ht-st-$TS-invalid"
+mkdir -p "$INVALID_DIR"
+if bash scripts/install.sh --stack=spring-boot --target="$INVALID_DIR" >/dev/null 2>&1; then
+  fail "invalid stack(spring-boot) 가 잘못 통과됨"
+else
+  ok "invalid stack(spring-boot) 거부 확인"
+fi
 
 echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
