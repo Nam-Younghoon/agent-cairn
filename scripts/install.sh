@@ -315,14 +315,19 @@ if [[ $HAS_PATH_SPEC -eq 0 ]]; then
     [[ $ANY_SPRING_KOTLIN -eq 1 ]] && install_springboot_kotlin_spotless "$TARGET"
   fi
 else
-  # 모노레포: 경로별 CLAUDE.md + 경로별 린트/포매터 설정
+  # 모노레포: 경로별 CLAUDE.md/AGENTS.md + 경로별 린트/포매터 설정
   for i in "${!STACKS[@]}"; do
     stack="${STACKS[$i]}"
     sub_path="${PATHS[$i]}"
     app_dir="$TARGET/$sub_path"
     mkdir -p "$app_dir"
     echo "[install] 앱 설치 ($stack → $sub_path)"
-    merge_claude "$app_dir/CLAUDE.md" "$HARNESS_DIR/templates/$stack/CLAUDE.md"
+    if has_cli claude; then
+      merge_claude "$app_dir/CLAUDE.md" "$HARNESS_DIR/templates/$stack/CLAUDE.md"
+    fi
+    if has_cli codex; then
+      merge_claude "$app_dir/AGENTS.md" "$HARNESS_DIR/templates/$stack/CLAUDE.md"
+    fi
     case "$stack" in
       express|nextjs)     install_node_lint "$app_dir" ;;
       nestjs)             install_nestjs_lint "$app_dir" ;;
@@ -342,11 +347,36 @@ fi
 cat <<EOF
 
 [install] 완료.
+EOF
 
-다음 단계:
+if has_cli claude; then
+  cat <<EOF
+
+[Claude Code] 다음 단계:
   1. 프로젝트를 열고 Claude Code 를 실행합니다.
   2. /discuss <작업 내용> 으로 요구사항 논의를 시작합니다.
   3. 승인 후 /plan → /execute → /ship 순으로 진행합니다.
+EOF
+fi
+
+if has_cli codex; then
+  cat <<EOF
+
+[Codex CLI] 다음 단계:
+  1. 프로젝트를 Codex CLI 로 엽니다. 최초 1회 프로젝트 신뢰 승격이 필요합니다:
+       codex projects trust $TARGET
+     또는 ~/.codex/config.toml 에 다음 블록을 추가하세요:
+       [projects."$TARGET"]
+       trust_level = "trusted"
+  2. /discuss <작업 내용> 으로 요구사항 논의를 시작합니다.
+     슬래시 커맨드가 자동 바인딩되지 않으면 @.codex/prompts/discuss.md 의 절차를 따르도록 요청해주세요.
+  3. 승인 후 /plan → /execute → /ship 순으로 진행합니다.
+  * Codex 세션은 Claude 훅의 rm -rf / .env·시크릿 차단이 적용되지 않습니다.
+    승인 정책(on-request)과 샌드박스(workspace-write)로만 보호되므로 각별히 주의하세요.
+EOF
+fi
+
+cat <<EOF
 
 의존성 설치 (스택별):
 EOF

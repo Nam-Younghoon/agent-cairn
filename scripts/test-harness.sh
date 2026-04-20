@@ -441,6 +441,65 @@ assert_file_missing "claude-only: .codex/prompts/discuss.md 부재" \
   "$CLAUDE_ONLY_DIR/.codex/prompts/discuss.md"
 
 echo
+echo "===== 4f) 스택별 AGENTS.md 복제 + Codex trust 안내 ====="
+
+# (A) 모노레포 + --cli=codex 단독: 앱 경로에 AGENTS.md 존재 / CLAUDE.md 부재
+CODEX_MONO2_DIR="/tmp/ht-st-$TS-codex-mono2"
+mkdir -p "$CODEX_MONO2_DIR"
+bash scripts/install.sh --cli=codex --stack=express:apps/api,nextjs:apps/web \
+  --target="$CODEX_MONO2_DIR" >/dev/null 2>&1
+for app in apps/api apps/web; do
+  assert_file_exists  "codex-mono2: $app/AGENTS.md" "$CODEX_MONO2_DIR/$app/AGENTS.md"
+  assert_file_missing "codex-mono2: $app/CLAUDE.md 부재" "$CODEX_MONO2_DIR/$app/CLAUDE.md"
+done
+
+# (B) 모노레포 + --cli=claude,codex 혼용: 양쪽 존재 + 마커 블록 일치
+MIX_MONO_DIR="/tmp/ht-st-$TS-mix-mono"
+mkdir -p "$MIX_MONO_DIR"
+bash scripts/install.sh --cli=claude,codex --stack=express:apps/api,nextjs:apps/web \
+  --target="$MIX_MONO_DIR" >/dev/null 2>&1
+for app in apps/api apps/web; do
+  assert_file_exists "mix-mono: $app/CLAUDE.md" "$MIX_MONO_DIR/$app/CLAUDE.md"
+  assert_file_exists "mix-mono: $app/AGENTS.md" "$MIX_MONO_DIR/$app/AGENTS.md"
+  if [[ -f "$MIX_MONO_DIR/$app/CLAUDE.md" && -f "$MIX_MONO_DIR/$app/AGENTS.md" ]]; then
+    if diff <(extract_marker_block "$MIX_MONO_DIR/$app/CLAUDE.md") \
+            <(extract_marker_block "$MIX_MONO_DIR/$app/AGENTS.md") > /dev/null; then
+      ok "mix-mono: $app CLAUDE.md ↔ AGENTS.md 마커 블록 일치"
+    else
+      fail "mix-mono: $app CLAUDE.md ↔ AGENTS.md 불일치"
+    fi
+  fi
+done
+
+# (C) Codex trust 안내 출력
+TRUST_DIR="/tmp/ht-st-$TS-trust"
+mkdir -p "$TRUST_DIR"
+if out="$(bash scripts/install.sh --cli=codex --stack=express --target="$TRUST_DIR" 2>&1)"; then
+  if grep -q "codex projects trust" <<< "$out"; then
+    ok "codex: 'codex projects trust' 안내 stdout 포함"
+  else
+    fail "codex: 'codex projects trust' 안내 누락"
+  fi
+  if grep -q "trust_level" <<< "$out"; then
+    ok "codex: trust_level 블록 안내 포함"
+  else
+    fail "codex: trust_level 블록 안내 누락"
+  fi
+else
+  fail "codex trust 안내 시나리오 설치 실패"
+fi
+
+# (D) claude 단독 시엔 Codex trust 안내 없음
+CLAUDE_NO_TRUST_DIR="/tmp/ht-st-$TS-claude-no-trust"
+mkdir -p "$CLAUDE_NO_TRUST_DIR"
+out="$(bash scripts/install.sh --cli=claude --stack=express --target="$CLAUDE_NO_TRUST_DIR" 2>&1)"
+if grep -q "codex projects trust" <<< "$out"; then
+  fail "claude-only: codex trust 안내가 잘못 포함됨"
+else
+  ok "claude-only: codex trust 안내 부재 (기대)"
+fi
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"
