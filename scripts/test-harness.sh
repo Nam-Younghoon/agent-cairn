@@ -441,6 +441,54 @@ assert_file_missing "claude-only: .codex/prompts/discuss.md 부재" \
   "$CLAUDE_ONLY_DIR/.codex/prompts/discuss.md"
 
 echo
+echo "===== 4e-2) .codex/templates/__docs/ 배포 검증 ====="
+
+# Codex 단독 설치: 6개 템플릿 파일 존재 확인
+for tpl in PRD.md ARCHITECTURE.md ADR.md UI_GUIDE.md plan.schema.json plan.example.json; do
+  assert_file_exists "codex-only: .codex/templates/__docs/$tpl" \
+    "$CODEX_ONLY_DIR/.codex/templates/__docs/$tpl"
+done
+
+# Claude,Codex 혼용 설치: 양쪽 템플릿 경로에 모두 배포
+for tpl in PRD.md ARCHITECTURE.md ADR.md UI_GUIDE.md plan.schema.json plan.example.json; do
+  assert_file_exists "mix: .claude/templates/__docs/$tpl" \
+    "$MIX_DIR/.claude/templates/__docs/$tpl"
+  assert_file_exists "mix: .codex/templates/__docs/$tpl" \
+    "$MIX_DIR/.codex/templates/__docs/$tpl"
+done
+
+# Claude 단독 설치: .codex/templates 부재
+assert_file_missing "claude-only: .codex/templates/__docs/PRD.md 부재" \
+  "$CLAUDE_ONLY_DIR/.codex/templates/__docs/PRD.md"
+
+# 모노레포 + Codex: 루트에만 템플릿 배포, 앱 경로에는 미배포
+for tpl in PRD.md plan.schema.json; do
+  assert_file_exists "codex-mono: root .codex/templates/__docs/$tpl" \
+    "$CODEX_MONO_DIR/.codex/templates/__docs/$tpl"
+  assert_file_missing "codex-mono: apps/api/.codex/templates/__docs/$tpl 부재" \
+    "$CODEX_MONO_DIR/apps/api/.codex/templates/__docs/$tpl"
+done
+
+# plan.schema.json 스키마 구조 검증 (version, steps 키 포함)
+if grep -q '"version"' "$CODEX_ONLY_DIR/.codex/templates/__docs/plan.schema.json" 2>/dev/null && \
+   grep -q '"steps"' "$CODEX_ONLY_DIR/.codex/templates/__docs/plan.schema.json" 2>/dev/null; then
+  ok "codex-only: plan.schema.json 에 version/steps 키 포함"
+else
+  fail "codex-only: plan.schema.json 구조 불완전"
+fi
+
+# Codex 템플릿과 Claude 템플릿 내용 일치 (혼용 모드)
+for tpl in PRD.md ARCHITECTURE.md ADR.md UI_GUIDE.md plan.schema.json plan.example.json; do
+  if [[ -f "$MIX_DIR/.claude/templates/__docs/$tpl" && -f "$MIX_DIR/.codex/templates/__docs/$tpl" ]]; then
+    if diff "$MIX_DIR/.claude/templates/__docs/$tpl" "$MIX_DIR/.codex/templates/__docs/$tpl" > /dev/null; then
+      ok "mix: .claude ↔ .codex templates/__docs/$tpl 내용 일치"
+    else
+      fail "mix: .claude ↔ .codex templates/__docs/$tpl 내용 불일치"
+    fi
+  fi
+done
+
+echo
 echo "===== 4f) 스택별 AGENTS.md 복제 + Codex trust 안내 ====="
 
 # (A) 모노레포 + --cli=codex 단독: 앱 경로에 AGENTS.md 존재 / CLAUDE.md 부재
