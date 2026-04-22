@@ -36,8 +36,10 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 - 과도한 추상화·주변 리팩터링 금지. 스텝 범위를 넘지 않는다.
 
 ### E. 검증
-- Node: `npm run build && npm run lint && npm run test` (또는 `vitest`/`jest`)
+- Node (Express/Next.js): `npm run build && npm run lint && npm run test` (또는 `vitest`/`jest`)
+- NestJS: `npm run build && npm run lint && npm run test`
 - Flutter: `dart format . && flutter analyze && flutter test`
+- SpringBoot: `./gradlew build test` (Spotless 도입 시 `./gradlew spotlessCheck` 추가)
 - 하나라도 실패하면 재시도 루프로 진입.
 
 ### F. 재시도 루프 (자동)

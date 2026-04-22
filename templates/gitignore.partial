@@ -26,3 +26,4 @@ __docs/
 # 화이트리스트: 팀 공통 자산이 향후 상위 패턴 추가로 배제되는 사고 방지.
 !.codex/config.toml
 !.codex/prompts/
+!.codex/templates/

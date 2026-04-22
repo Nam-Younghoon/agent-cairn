@@ -23,9 +23,11 @@ model: sonnet
 6. `__docs/`가 `.gitignore`에 포함되어 있는가?
 
 ### B. 린트/빌드
-1. Node: `npm run lint` 및 `npm run build` 실행. 실패 시 즉시 블록.
-2. Flutter: `flutter analyze` 실행. 경고 존재 시 블록.
-3. 두 스크립트가 없으면 이유와 함께 건너뛰었음을 보고.
+1. Node (Express/Next.js): `npm run lint` 및 `npm run build` 실행. 실패 시 즉시 블록.
+2. NestJS: `npm run build && npm run lint && npm run test` 실행. 실패 시 즉시 블록.
+3. Flutter: `flutter analyze` 실행. 경고 존재 시 블록.
+4. SpringBoot: `./gradlew build test` 실행. Spotless 도입 시 `./gradlew spotlessCheck` 추가. 실패 시 즉시 블록.
+5. 해당 스크립트가 없으면 이유와 함께 건너뛰었음을 보고.
 
 ### C. 기본 품질
 1. 같은 로직이 3회 이상 복붙되었는가? (과도한 추상화는 금지, 단순 중복만 지적)

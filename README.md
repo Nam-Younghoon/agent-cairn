@@ -9,7 +9,7 @@
 | 팀 규격 본문 | `CLAUDE.md` (Claude) / `AGENTS.md` (Codex, 동일 본문 복제) | 문서/개발 컨벤션, 업무 프로세스, 금지 행동 |
 | 위험 명령 차단 훅 (Bash) | `.claude/hooks/block_dangerous.py` | `rm -rf`·`git force push`·`git reset --hard`·`sudo`·`chmod 777`·`curl\|sh`·운영 DB 스키마 변경 등 차단 **(Claude 세션 전용)** |
 | 시크릿 차단 훅 (Write/Edit) | `.claude/hooks/block_secret_files.py` | `.env` 등 시크릿 파일 쓰기, 시크릿 문자열이 포함된 파일 쓰기 차단 **(Claude 세션 전용)** |
-| 시크릿 정규식 | `.claude/patterns/secrets.yaml` | AWS/GitHub/Slack/JWT/Stripe/Private Key 등 16종 |
+| 시크릿 정규식 | `.claude/patterns/secrets.yaml` | AWS/GitHub/Slack/JWT/Stripe/Private Key/Kakao/NCP/Toss 등 27종 |
 | Claude 슬래시 커맨드 | `.claude/commands/{discuss,plan,execute,ship}.md` | 4-커맨드 파이프라인 |
 | Codex 슬래시 커맨드 / 프롬프트 | `.codex/prompts/{discuss,plan,execute,ship}.md` | 동일 이름·동일 흐름. 서브에이전트 호출 지점을 `## 인라인 가이드` 섹션으로 치환 |
 | Codex 기본 설정 | `.codex/config.toml` | `approval_policy="on-request"`, `sandbox_mode="workspace-write"`, `network_access=true` + 프로젝트 trust 승격 안내 |

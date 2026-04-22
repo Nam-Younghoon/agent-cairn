@@ -224,6 +224,14 @@ if has_cli codex; then
   copy_file "$HARNESS_DIR/.codex/prompts/plan.md"     "$TARGET/.codex/prompts/plan.md"
   copy_file "$HARNESS_DIR/.codex/prompts/execute.md"  "$TARGET/.codex/prompts/execute.md"
   copy_file "$HARNESS_DIR/.codex/prompts/ship.md"     "$TARGET/.codex/prompts/ship.md"
+
+  # Codex 프롬프트가 참조하는 문서 템플릿. --cli=codex 단독 시에도 Read 가능해야 한다.
+  copy_file "$HARNESS_DIR/templates/__docs/PRD.md"                "$TARGET/.codex/templates/__docs/PRD.md"
+  copy_file "$HARNESS_DIR/templates/__docs/ARCHITECTURE.md"       "$TARGET/.codex/templates/__docs/ARCHITECTURE.md"
+  copy_file "$HARNESS_DIR/templates/__docs/ADR.md"                "$TARGET/.codex/templates/__docs/ADR.md"
+  copy_file "$HARNESS_DIR/templates/__docs/UI_GUIDE.md"           "$TARGET/.codex/templates/__docs/UI_GUIDE.md"
+  copy_file "$HARNESS_DIR/templates/__docs/plan.schema.json"      "$TARGET/.codex/templates/__docs/plan.schema.json"
+  copy_file "$HARNESS_DIR/templates/__docs/plan.example.json"     "$TARGET/.codex/templates/__docs/plan.example.json"
 fi
 
 # ---- 2) 스택 스펙 파싱 -----------------------------------------------------
@@ -302,11 +310,12 @@ rm -f "$tmp_root_content"
 # ---- 4) 스택별 설치 --------------------------------------------------------
 
 if [[ $HAS_PATH_SPEC -eq 0 ]]; then
-  # 루트 1곳에 린트/포매터 설정 설치
-  if [[ $ANY_NODE -eq 1 ]]; then
+  # 루트 1곳에 린트/포매터 설정 설치.
+  # Node(Express/Next.js) 와 NestJS 가 동시 지정되면 NestJS 전용 ESLint 가 우선한다
+  # (공용 node ESLint 위에 NestJS 전용이 덮어쓰기). 모노레포라면 경로 분리를 권장.
+  if [[ $ANY_NODE -eq 1 && $ANY_NESTJS -eq 0 ]]; then
     install_node_lint "$TARGET"
   elif [[ $ANY_NESTJS -eq 1 ]]; then
-    # NestJS 만 설치하는 경우 전용 eslint.config.mjs 를 사용한다.
     install_nestjs_lint "$TARGET"
   fi
   [[ $ANY_FLUTTER -eq 1 ]] && install_flutter_lint "$TARGET"

@@ -32,8 +32,10 @@
 - 과도한 추상화·주변 리팩터링 금지. 스텝 범위를 넘지 않는다.
 
 ### E. 검증
-- Node: `npm run build && npm run lint && npm run test` (또는 `vitest`/`jest`)
+- Node (Express/Next.js): `npm run build && npm run lint && npm run test` (또는 `vitest`/`jest`)
+- NestJS: `npm run build && npm run lint && npm run test`
 - Flutter: `dart format . && flutter analyze && flutter test`
+- SpringBoot: `./gradlew build test` (Spotless 도입 시 `./gradlew spotlessCheck` 추가)
 - 하나라도 실패하면 재시도 루프로 진입.
 
 ### F. 재시도 루프 (자동)
@@ -152,9 +154,11 @@ Claude 의 `pre-commit-reviewer` 에이전트를 Codex 세션에서 대체하는
 6. `__docs/` 가 `.gitignore` 에 포함되어 있는가?
 
 **B. 린트/빌드**
-1. Node: `npm run lint` 및 `npm run build` 실행. 실패 시 즉시 BLOCK.
-2. Flutter: `flutter analyze` 실행. 경고 존재 시 BLOCK.
-3. 두 스크립트가 없으면 이유와 함께 건너뛰었음을 보고.
+1. Node (Express/Next.js): `npm run lint` 및 `npm run build` 실행. 실패 시 즉시 BLOCK.
+2. NestJS: `npm run build && npm run lint && npm run test` 실행. 실패 시 즉시 BLOCK.
+3. Flutter: `flutter analyze` 실행. 경고 존재 시 BLOCK.
+4. SpringBoot: `./gradlew build test` 실행. Spotless 도입 시 `./gradlew spotlessCheck` 추가. 실패 시 즉시 BLOCK.
+5. 해당 스크립트가 없으면 이유와 함께 건너뛰었음을 보고.
 
 **C. 기본 품질**
 1. 같은 로직이 3회 이상 복붙되었는가? (과도한 추상화는 금지, 단순 중복만 지적)
