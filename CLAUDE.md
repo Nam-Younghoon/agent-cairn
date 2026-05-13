@@ -67,7 +67,9 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 ## 3. 업무 프로세스
 
-### 3.1 전체 흐름 (4개 슬래시 커맨드)
+### 3.1 전체 흐름 (5개 슬래시 커맨드)
+
+**신규 작업 파이프라인 (4개)**
 
 ```
  /discuss <설명>   →  PRD/ARCHITECTURE/ADR/(UI_GUIDE) 초안 + 브랜치 생성
@@ -79,6 +81,17 @@ feat: 사용자 프로필 이미지 업로드 추가
  /ship             →  dev 최신화(충돌 시 컨펌) → push → gh pr create
 ```
 
+**PR 리뷰 트랙 (독립)**
+
+```
+ /pr-reviewer <PR번호> [추가 메시지]
+       ↓ gh CLI 사전 검증 (가용성·인증·origin·PR state)
+       ↓ 4단계 리뷰 (컨텍스트 수집 → 요구사항 검증 → 사이드 이펙트 분석 → 전사 재검수)
+       ↓ __docs/pr-review-<PR번호>.md 저장 + 콘솔 요약 (PASS|BLOCK)
+       ↓ 사용자 컨펌 (yes/no/dry-run)
+       ↓ PR 코멘트 게시: line-level (gh api) + 종합 (gh pr comment)
+```
+
 각 커맨드의 상세 동작과 서브에이전트 호출 규약은 `.claude/commands/<name>.md` 를 참조한다.
 
 ### 3.2 서브에이전트 호출 규약
@@ -88,6 +101,7 @@ feat: 사용자 프로필 이미지 업로드 추가
 | `parallel-explorer` | `/discuss`, `/plan`, `/execute` 의 초반 컨텍스트 수집 | 코드 수정, 사용자 질문 |
 | `tdd-tester` | `/execute` 의 C 단계 (실패 테스트 작성) | 구현체 수정, 테스트 약화 |
 | `pre-commit-reviewer` | `/execute` 의 G 단계 (커밋 직전), `/ship` 의 최종 검증 | 직접 수정 (위임만) |
+| `pr-reviewer` | `/pr-reviewer` 의 리뷰 단계 (4단계 전 과정 위임) | 코드 수정, PR 코멘트 게시, git 상태 변경 |
 
 ### 3.3 에러 대응 규칙
 - 동일 에러 해결을 최대 3회 재시도한다. 이전 실패 메시지를 `plan.json.steps[].error_log` 에 누적한다.
@@ -125,12 +139,13 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 ### Claude Code
 - `.claude/commands/discuss.md` — `/discuss` 슬래시 커맨드 정의
-- `.claude/agents/` — 병렬 탐색·TDD·리뷰 전용 서브에이전트
+- `.claude/commands/pr-reviewer.md` — `/pr-reviewer` 슬래시 커맨드 정의 (PR 리뷰 트랙)
+- `.claude/agents/` — 병렬 탐색·TDD·리뷰 전용 서브에이전트 (`parallel-explorer`, `tdd-tester`, `pre-commit-reviewer`, `pr-reviewer`)
 - `.claude/hooks/`, `.claude/patterns/secrets.yaml` — 위험 명령 / 시크릿 쓰기 하드락
 
 ### Codex CLI (ADR-001, ADR-004, ADR-005)
-- `.codex/prompts/{discuss,plan,execute,ship}.md` — Claude 커맨드와 동일 이름·동일 흐름.
-  Claude 서브에이전트(parallel-explorer/tdd-tester/pre-commit-reviewer) 호출 지점을
+- `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` — Claude 커맨드와 동일 이름·동일 흐름.
+  Claude 서브에이전트(parallel-explorer/tdd-tester/pre-commit-reviewer/pr-reviewer) 호출 지점을
   `## 인라인 가이드 —` 섹션으로 치환해 Codex 단일 세션에서 직접 수행.
 - `.codex/config.toml` — `approval_policy="on-request"` + `sandbox_mode="workspace-write"` +
   `network_access=true` 기본값. 보수 모드 재정의 예시 주석 포함.
