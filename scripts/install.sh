@@ -200,9 +200,11 @@ if has_cli claude; then
   copy_file "$HARNESS_DIR/.claude/commands/plan.md"                "$TARGET/.claude/commands/plan.md"
   copy_file "$HARNESS_DIR/.claude/commands/execute.md"             "$TARGET/.claude/commands/execute.md"
   copy_file "$HARNESS_DIR/.claude/commands/ship.md"                "$TARGET/.claude/commands/ship.md"
+  copy_file "$HARNESS_DIR/.claude/commands/pr-reviewer.md"         "$TARGET/.claude/commands/pr-reviewer.md"
   copy_file "$HARNESS_DIR/.claude/agents/tdd-tester.md"            "$TARGET/.claude/agents/tdd-tester.md"
   copy_file "$HARNESS_DIR/.claude/agents/parallel-explorer.md"     "$TARGET/.claude/agents/parallel-explorer.md"
   copy_file "$HARNESS_DIR/.claude/agents/pre-commit-reviewer.md"   "$TARGET/.claude/agents/pre-commit-reviewer.md"
+  copy_file "$HARNESS_DIR/.claude/agents/pr-reviewer.md"           "$TARGET/.claude/agents/pr-reviewer.md"
 
   # 슬래시 커맨드가 참조하는 문서 템플릿. 대상 프로젝트 안에서 Read 가능해야 한다.
   copy_file "$HARNESS_DIR/templates/__docs/PRD.md"                "$TARGET/.claude/templates/__docs/PRD.md"
@@ -220,10 +222,11 @@ fi
 if has_cli codex; then
   echo "[install] .codex/ 자산 배포 (Codex)"
   copy_file "$HARNESS_DIR/.codex/config.toml"         "$TARGET/.codex/config.toml"
-  copy_file "$HARNESS_DIR/.codex/prompts/discuss.md"  "$TARGET/.codex/prompts/discuss.md"
-  copy_file "$HARNESS_DIR/.codex/prompts/plan.md"     "$TARGET/.codex/prompts/plan.md"
-  copy_file "$HARNESS_DIR/.codex/prompts/execute.md"  "$TARGET/.codex/prompts/execute.md"
-  copy_file "$HARNESS_DIR/.codex/prompts/ship.md"     "$TARGET/.codex/prompts/ship.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/discuss.md"     "$TARGET/.codex/prompts/discuss.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/plan.md"        "$TARGET/.codex/prompts/plan.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/execute.md"     "$TARGET/.codex/prompts/execute.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/ship.md"        "$TARGET/.codex/prompts/ship.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/pr-reviewer.md" "$TARGET/.codex/prompts/pr-reviewer.md"
 
   # Codex 프롬프트가 참조하는 문서 템플릿. --cli=codex 단독 시에도 Read 가능해야 한다.
   copy_file "$HARNESS_DIR/templates/__docs/PRD.md"                "$TARGET/.codex/templates/__docs/PRD.md"

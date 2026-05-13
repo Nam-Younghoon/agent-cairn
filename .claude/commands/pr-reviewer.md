@@ -1,7 +1,7 @@
 ---
 description: 지정된 PR 번호의 변경사항을 4단계로 상세 리뷰하고 사이드 이펙트를 분석. PASS|BLOCK 판정 후 사용자 승인 시 PR 코멘트 게시.
 argument-hint: <PR번호> [추가 메시지]
-allowed-tools: Bash, Read, Write, Edit, Grep, Agent
+allowed-tools: Bash, Read, Write, Grep, Agent
 ---
 
 # /pr-reviewer — Pull Request 상세 리뷰
