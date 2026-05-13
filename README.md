@@ -1,6 +1,6 @@
 # agent-cairn
 
-여러 프레임워크를 위한 올인원 개발 하네스. **Claude Code** 와 **OpenAI Codex CLI** 를 동시 지원하며, 백엔드(Express·NestJS·SpringBoot Java·SpringBoot Kotlin)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다. 두 CLI 에서 `/discuss /plan /execute /ship` 4-커맨드 UX 는 동일하게 동작합니다 (Codex 는 서브에이전트가 없어 **인라인 가이드**로 대체 — ADR-001).
+여러 프레임워크를 위한 올인원 개발 하네스. **Claude Code** 와 **OpenAI Codex CLI** 를 동시 지원하며, 백엔드(Express·NestJS·SpringBoot Java·SpringBoot Kotlin)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다. 두 CLI 에서 `/discuss /plan /execute /ship` 신규 작업 4-커맨드 파이프라인과 `/pr-reviewer` PR 리뷰 트랙이 동일하게 동작합니다 (Codex 는 서브에이전트가 없어 **인라인 가이드**로 대체 — ADR-001).
 
 ## 핵심 구성
 
@@ -10,18 +10,20 @@
 | 위험 명령 차단 훅 (Bash) | `.claude/hooks/block_dangerous.py` | `rm -rf`·`git force push`·`git reset --hard`·`sudo`·`chmod 777`·`curl\|sh`·운영 DB 스키마 변경 등 차단 **(Claude 세션 전용)** |
 | 시크릿 차단 훅 (Write/Edit) | `.claude/hooks/block_secret_files.py` | `.env` 등 시크릿 파일 쓰기, 시크릿 문자열이 포함된 파일 쓰기 차단 **(Claude 세션 전용)** |
 | 시크릿 정규식 | `.claude/patterns/secrets.yaml` | AWS/GitHub/Slack/JWT/Stripe/Private Key/Kakao/NCP/Toss 등 27종 |
-| Claude 슬래시 커맨드 | `.claude/commands/{discuss,plan,execute,ship}.md` | 4-커맨드 파이프라인 |
-| Codex 슬래시 커맨드 / 프롬프트 | `.codex/prompts/{discuss,plan,execute,ship}.md` | 동일 이름·동일 흐름. 서브에이전트 호출 지점을 `## 인라인 가이드` 섹션으로 치환 |
+| Claude 슬래시 커맨드 | `.claude/commands/{discuss,plan,execute,ship,pr-reviewer}.md` | 신규 작업 4-커맨드 파이프라인 + PR 리뷰 트랙 |
+| Codex 슬래시 커맨드 / 프롬프트 | `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` | 동일 이름·동일 흐름. 서브에이전트 호출 지점을 `## 인라인 가이드` 섹션으로 치환 |
 | Codex 기본 설정 | `.codex/config.toml` | `approval_policy="on-request"`, `sandbox_mode="workspace-write"`, `network_access=true` + 프로젝트 trust 승격 안내 |
-| 서브에이전트 (Claude) | `.claude/agents/{parallel-explorer,tdd-tester,pre-commit-reviewer}.md` | 탐색·TDD·리뷰 전용. Codex 는 네이티브 미사용, 인라인 가이드로 대체 (ADR-001) |
+| 서브에이전트 (Claude) | `.claude/agents/{parallel-explorer,tdd-tester,pre-commit-reviewer,pr-reviewer}.md` | 탐색·TDD·리뷰·PR 리뷰 전용. Codex 는 네이티브 미사용, 인라인 가이드로 대체 (ADR-001) |
 | 스택별 CLAUDE.md | `templates/{express,nextjs,flutter,nestjs,springboot,springboot-kotlin}/CLAUDE.md` | 아키텍처·스크립트·테스트 정책 + 올바른 모양 예시. `--cli=codex` 시 동일 본문이 스택 경로의 `AGENTS.md` 로도 복제 |
 | 문서 템플릿 | `templates/__docs/` | PRD / ARCHITECTURE / ADR / UI_GUIDE / plan.schema.json |
 | 린트/포매터 | `templates/node/`, `templates/nestjs/eslint.config.mjs`, `templates/flutter/analysis_options.yaml`, `templates/springboot{,-kotlin}/spotless.gradle.kts` | ESLint(flat) + Prettier, NestJS 전용 ESLint, analysis_options, Spotless(옵트인) |
 | PR 템플릿 | `templates/github/PULL_REQUEST_TEMPLATE.md` | 하네스 체크리스트 포함. **CLI 무관** (Claude/Codex 모두 공용) |
 | 설치 스크립트 | `scripts/install.sh` | `--cli` 로 Claude/Codex 선택(혼용 가능), 단일·다중·모노레포 스택, 마커 기반 스마트 병합 |
-| 셀프 테스트 | `scripts/test-harness.sh`, `tests/` | pytest + 설치 시나리오 회귀 (현재 PASS=167) |
+| 셀프 테스트 | `scripts/test-harness.sh`, `tests/` | pytest + 설치 시나리오 회귀 (현재 PASS=214) |
 
-## 4-커맨드 파이프라인
+## 슬래시 커맨드
+
+### 신규 작업 파이프라인 (4-커맨드)
 
 ```
 /discuss <설명>          PRD/ARCHITECTURE/ADR/(UI_GUIDE) 초안 + 브랜치 생성
@@ -33,10 +35,24 @@
 /ship                    전체 검증 → dev 최신화(충돌 시 컨펌) → push → gh pr create
 ```
 
+### PR 리뷰 트랙 (독립)
+
+```
+/pr-reviewer <PR번호> [추가 메시지]
+       ↓ gh CLI 사전 검증 (가용성·인증·origin·PR state)
+       ↓ 4단계 리뷰 (컨텍스트 수집 → 요구사항 검증 → 사이드 이펙트 분석 → 전사 재검수)
+       ↓ __docs/pr-review-<PR번호>.md 저장 + 콘솔 요약 (PASS|BLOCK)
+       ↓ 사용자 컨펌 (yes/no/dry-run)
+       ↓ PR 코멘트 게시: line-level (gh api) + 종합 (gh pr comment)
+```
+
+BLOCK 기준: 요구사항 미충족·로직 결함, 보안·시크릿 누출, 하네스 규약 위반(any 타입·하드코딩·네이밍 등). TDD 누락은 WARNING.
+
 각 커맨드 내부에서 호출되는 서브에이전트:
 - `parallel-explorer`: `/discuss`, `/plan`, `/execute` 의 초반 컨텍스트 수집.
 - `tdd-tester`: `/execute` 의 C 단계 (실패 테스트 작성).
 - `pre-commit-reviewer`: `/execute` 의 G 단계 (커밋 전 게이트), `/ship` 의 최종 검증.
+- `pr-reviewer`: `/pr-reviewer` 의 리뷰 단계 (4단계 전 과정 위임, 읽기 전용).
 
 ## 설치
 
@@ -76,7 +92,7 @@ git clone <이 레포> /tmp/agent-cairn
 설치 후 자동으로 수행되는 것 (`--cli` 값에 따라 분기):
 1. **공통**: `.gitignore` 에 하네스 블록 추가 (`__docs/`, `.env`, `.codex/sessions/` 등), `.env.example` 배포, `.github/PULL_REQUEST_TEMPLATE.md` 배포, 스택별 린트/포매터 설정.
 2. **Claude 포함 시**: `.claude/` (settings, hooks, patterns, commands, agents, templates/__docs) 배포 + `CLAUDE.md` 생성·마커 병합 (`<!-- agent-cairn:start -->` 안쪽만 교체, 바깥쪽 사용자 커스텀 보존). 모노레포 스택 경로에도 `CLAUDE.md` 생성.
-3. **Codex 포함 시**: `.codex/config.toml` 와 `.codex/prompts/{discuss,plan,execute,ship}.md` 를 **루트 1회**만 배포, `AGENTS.md` 를 루트·모노레포 스택 경로에 `CLAUDE.md` 와 동일 본문으로 마커 병합. 종료 메시지에 `codex projects trust <target>` 안내 출력.
+3. **Codex 포함 시**: `.codex/config.toml` 와 `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` 를 **루트 1회**만 배포, `AGENTS.md` 를 루트·모노레포 스택 경로에 `CLAUDE.md` 와 동일 본문으로 마커 병합. 종료 메시지에 `codex projects trust <target>` 안내 출력.
 
 ### Codex 설치 후 할 일 (수동)
 
@@ -97,6 +113,7 @@ trust_level = "trusted"
 ## 슬래시 커맨드 대체 — Codex
 - `@.codex/prompts/discuss.md 의 절차를 따라 진행해주세요.`
 - `@.codex/prompts/plan.md ...` / `@.codex/prompts/execute.md ...` / `@.codex/prompts/ship.md ...`
+- `@.codex/prompts/pr-reviewer.md 의 절차를 따라 PR <번호> 를 리뷰해주세요.`
 ```
 
 ### 기존 설치 사용자 — 업데이트 유의사항

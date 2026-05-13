@@ -37,9 +37,11 @@ required=(
   ".claude/commands/plan.md"
   ".claude/commands/execute.md"
   ".claude/commands/ship.md"
+  ".claude/commands/pr-reviewer.md"
   ".claude/agents/parallel-explorer.md"
   ".claude/agents/tdd-tester.md"
   ".claude/agents/pre-commit-reviewer.md"
+  ".claude/agents/pr-reviewer.md"
   "templates/express/CLAUDE.md"
   "templates/nextjs/CLAUDE.md"
   "templates/flutter/CLAUDE.md"
@@ -407,12 +409,12 @@ echo
 echo "===== 4e) .codex/prompts/*.md 배포 + 인라인 가이드 ====="
 
 # 4d 에서 이미 생성된 CODEX_ONLY_DIR 재사용
-for cmd in discuss plan execute ship; do
+for cmd in discuss plan execute ship pr-reviewer; do
   assert_file_exists "codex-only: prompts/$cmd.md" "$CODEX_ONLY_DIR/.codex/prompts/$cmd.md"
 done
 
 # 각 프롬프트에 인라인 가이드 섹션 최소 1개 포함
-for cmd in discuss plan execute ship; do
+for cmd in discuss plan execute ship pr-reviewer; do
   if grep -q "^## 인라인 가이드" "$CODEX_ONLY_DIR/.codex/prompts/$cmd.md" 2>/dev/null; then
     ok "codex-only: prompts/$cmd.md 에 인라인 가이드 섹션 포함"
   else
@@ -431,7 +433,7 @@ for guide in "병렬 탐색" "실패 테스트 선 작성" "커밋 전 리뷰"; 
 done
 
 # 모노레포 시나리오: 앱 경로에 prompts 중복 배포되지 않음
-for cmd in discuss plan execute ship; do
+for cmd in discuss plan execute ship pr-reviewer; do
   assert_file_missing "codex-mono: apps/api/.codex/prompts/$cmd.md 부재" \
     "$CODEX_MONO_DIR/apps/api/.codex/prompts/$cmd.md"
 done
@@ -439,6 +441,69 @@ done
 # --cli=claude 단독 시 .codex/prompts 부재
 assert_file_missing "claude-only: .codex/prompts/discuss.md 부재" \
   "$CLAUDE_ONLY_DIR/.codex/prompts/discuss.md"
+assert_file_missing "claude-only: .codex/prompts/pr-reviewer.md 부재" \
+  "$CLAUDE_ONLY_DIR/.codex/prompts/pr-reviewer.md"
+
+echo
+echo "===== 4e-3) /pr-reviewer Claude 자산 배포 검증 ====="
+
+# Claude 단독 / 혼용 시 슬래시 커맨드 + 서브에이전트 둘 다 배포
+assert_file_exists "claude-only: commands/pr-reviewer.md" \
+  "$CLAUDE_ONLY_DIR/.claude/commands/pr-reviewer.md"
+assert_file_exists "claude-only: agents/pr-reviewer.md" \
+  "$CLAUDE_ONLY_DIR/.claude/agents/pr-reviewer.md"
+assert_file_exists "mix: commands/pr-reviewer.md" \
+  "$MIX_DIR/.claude/commands/pr-reviewer.md"
+assert_file_exists "mix: agents/pr-reviewer.md" \
+  "$MIX_DIR/.claude/agents/pr-reviewer.md"
+
+# Codex 단독 시 Claude 측 자산은 부재
+assert_file_missing "codex-only: .claude/commands/pr-reviewer.md 부재" \
+  "$CODEX_ONLY_DIR/.claude/commands/pr-reviewer.md"
+assert_file_missing "codex-only: .claude/agents/pr-reviewer.md 부재" \
+  "$CODEX_ONLY_DIR/.claude/agents/pr-reviewer.md"
+
+# Claude 측 슬래시 커맨드의 frontmatter / 7단계 흐름 / 금지 섹션 정합성
+pr_claude="$CLAUDE_ONLY_DIR/.claude/commands/pr-reviewer.md"
+if grep -q "^argument-hint:.*<PR번호>" "$pr_claude" 2>/dev/null; then
+  ok "claude-only: pr-reviewer.md frontmatter argument-hint 포함"
+else
+  fail "claude-only: pr-reviewer.md frontmatter argument-hint 누락"
+fi
+if grep -q "^## 7단계" "$pr_claude" 2>/dev/null && grep -q "^## 금지" "$pr_claude" 2>/dev/null; then
+  ok "claude-only: pr-reviewer.md 7단계 + 금지 섹션 포함"
+else
+  fail "claude-only: pr-reviewer.md 단계/금지 섹션 누락"
+fi
+
+# 슬래시 커맨드 allowed-tools 화이트리스트 — Edit 미포함 (Write 는 보고서 저장에 필요)
+cmd_allowed_line="$(grep -E '^allowed-tools:' "$pr_claude" 2>/dev/null || true)"
+if [[ -n "$cmd_allowed_line" ]] \
+   && ! echo "$cmd_allowed_line" | grep -qE '\bEdit\b' \
+   && ! echo "$cmd_allowed_line" | grep -qE '\bNotebookEdit\b'; then
+  ok "claude-only: commands/pr-reviewer.md allowed-tools 에 Edit 미포함"
+else
+  fail "claude-only: commands/pr-reviewer.md allowed-tools 화이트리스트 위반 ($cmd_allowed_line)"
+fi
+
+# Claude 측 서브에이전트의 tools 화이트리스트 (Write/Edit 미포함)
+pr_agent="$CLAUDE_ONLY_DIR/.claude/agents/pr-reviewer.md"
+agent_tools_line="$(grep -E '^tools:' "$pr_agent" 2>/dev/null || true)"
+if [[ -n "$agent_tools_line" ]] \
+   && ! echo "$agent_tools_line" | grep -qE '\bWrite\b' \
+   && ! echo "$agent_tools_line" | grep -qE '\bEdit\b'; then
+  ok "claude-only: agents/pr-reviewer.md tools 에 Write/Edit 미포함"
+else
+  fail "claude-only: agents/pr-reviewer.md tools 화이트리스트 위반 ($agent_tools_line)"
+fi
+
+# Codex 프롬프트의 인라인 가이드 — PR 리뷰 섹션 존재
+pr_codex="$CODEX_ONLY_DIR/.codex/prompts/pr-reviewer.md"
+if grep -qF "## 인라인 가이드 — PR 리뷰" "$pr_codex" 2>/dev/null; then
+  ok "codex-only: prompts/pr-reviewer.md 의 'PR 리뷰' 인라인 가이드 포함"
+else
+  fail "codex-only: prompts/pr-reviewer.md 의 'PR 리뷰' 인라인 가이드 누락"
+fi
 
 echo
 echo "===== 4e-2) .codex/templates/__docs/ 배포 검증 ====="
