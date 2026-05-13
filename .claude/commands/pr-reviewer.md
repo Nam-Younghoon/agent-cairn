@@ -31,7 +31,7 @@ allowed-tools: Bash, Read, Write, Edit, Grep, Agent
 2. `gh` CLI 가용성: `gh --version` (없으면 `https://cli.github.com` 안내)
 3. `gh` 인증 상태: `gh auth status` (실패 시 `gh auth login` 안내)
 4. 현재 디렉토리의 origin 이 GitHub 레포인지: `gh repo view --json url` 가 성공해야 함
-5. 지정된 PR 번호가 실제로 존재하는지 + 상태가 `open` 인지:
+5. 지정된 PR 번호가 실제로 존재하는지 + 상태가 `OPEN` 인지:
    - `gh pr view <번호> --json number,state,headRefOid` 로 메타 수집 (실패 메시지 그대로 전달)
    - `state` 값을 확인: `OPEN` 이 아니면(`CLOSED`/`MERGED`) line-level 코멘트 게시가 실패할 수 있음을 사용자에게 안내하고, "그래도 로컬 리뷰만 진행할까요?" 컨펌. 거절 시 중단, 승인 시 6단계의 게시 옵션을 dry-run 으로 강제.
    - `headRefOid` 는 7-1 단계에서 `commit_id` 로 사용하므로 변수에 보관.
