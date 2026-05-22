@@ -73,6 +73,7 @@ required=(
   ".codex/prompts/plan.md"
   ".codex/prompts/execute.md"
   ".codex/prompts/ship.md"
+  ".codex/prompts/pr-reviewer.md"
   ".gemini/commands/discuss.toml"
   ".gemini/commands/plan.toml"
   ".gemini/commands/execute.toml"
@@ -858,6 +859,29 @@ for guide in "병렬 탐색" "실패 테스트 선 작성" "커밋 전 리뷰"; 
     fail "gemini-only: execute.toml 의 '$guide' 가이드 누락"
   fi
 done
+
+# (H) pr-reviewer.toml 구조 검증 (Codex §4e-3 대응)
+# TOML 포맷 특성상 frontmatter / allowed-tools 화이트리스트 개념이 없어,
+# 정합성은 (1) PR 리뷰 인라인 가이드 정확한 섹션명, (2) 7단계 + 금지 섹션 존재,
+# (3) description 에 PR 리뷰 의도 키워드 포함 으로 검증한다.
+pr_toml="$GEMINI_ONLY_DIR/.gemini/commands/pr-reviewer.toml"
+if grep -qF "## 인라인 가이드 — PR 리뷰" "$pr_toml" 2>/dev/null; then
+  ok "gemini-only: pr-reviewer.toml 의 'PR 리뷰' 인라인 가이드 정확한 섹션명 포함"
+else
+  fail "gemini-only: pr-reviewer.toml 의 'PR 리뷰' 인라인 가이드 섹션명 누락"
+fi
+for section in "## 7단계" "## 금지"; do
+  if grep -qF "$section" "$pr_toml" 2>/dev/null; then
+    ok "gemini-only: pr-reviewer.toml 에 '$section' 섹션 포함"
+  else
+    fail "gemini-only: pr-reviewer.toml 에 '$section' 섹션 누락"
+  fi
+done
+if grep -qE '^description = ".*(PR|리뷰)' "$pr_toml" 2>/dev/null; then
+  ok "gemini-only: pr-reviewer.toml description 에 PR/리뷰 키워드 포함"
+else
+  fail "gemini-only: pr-reviewer.toml description 에 PR/리뷰 키워드 누락"
+fi
 
 echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
