@@ -12,8 +12,8 @@
 # 지원 스택: express | nextjs | flutter | nestjs | springboot | springboot-kotlin
 #
 # 옵션:
-#   --cli=<list>    : 배포할 CLI 어댑터 (claude | codex, 콤마 결합 가능).
-#                     기본값: claude. 예: --cli=codex 또는 --cli=claude,codex
+#   --cli=<list>    : 배포할 CLI 어댑터 (claude | codex | gemini, 콤마 결합 가능).
+#                     기본값: claude. 예: --cli=gemini 또는 --cli=claude,codex,gemini
 #   --with-spotless : SpringBoot(Java/Kotlin) 스택에 Spotless 포매터 스니펫과
 #                     .editorconfig 를 배포한다. 기본은 포매터 없음.
 #
@@ -59,19 +59,19 @@ fi
 
 # --cli 파싱 + 허용값 검증
 if [[ -z "${CLI_SPEC// /}" ]]; then
-  echo "오류: --cli 값이 비어 있습니다. (허용: claude, codex / 콤마 결합)" >&2
+  echo "오류: --cli 값이 비어 있습니다. (허용: claude, codex, gemini / 콤마 결합)" >&2
   exit 1
 fi
 IFS=',' read -r -a CLIS <<< "$CLI_SPEC"
 for cli in "${CLIS[@]}"; do
   case "$cli" in
-    claude|codex) ;;
+    claude|codex|gemini) ;;
     "")
       echo "오류: --cli 값에 빈 항목이 포함되어 있습니다." >&2
       exit 1
       ;;
     *)
-      echo "오류: 지원하지 않는 --cli 값: '$cli' (허용: claude, codex)" >&2
+      echo "오류: 지원하지 않는 --cli 값: '$cli' (허용: claude, codex, gemini)" >&2
       exit 1
       ;;
   esac
@@ -237,6 +237,28 @@ if has_cli codex; then
   copy_file "$HARNESS_DIR/templates/__docs/plan.example.json"     "$TARGET/.codex/templates/__docs/plan.example.json"
 fi
 
+# ---- 1c) Gemini 전용 자산 (.gemini/) ----------------------------------------
+# CLIS 에 gemini 가 포함된 경우에만 배포. 타깃 리포지토리 루트에만 1회 배포한다
+# (Gemini CLI 는 git root 부터 walk 하므로 모노레포 앱 경로에는 중복 배포하지 않음).
+
+if has_cli gemini; then
+  echo "[install] .gemini/ 자산 배포 (Gemini)"
+  copy_file "$HARNESS_DIR/.gemini/settings.json"                "$TARGET/.gemini/settings.json"
+  copy_file "$HARNESS_DIR/.gemini/commands/discuss.toml"        "$TARGET/.gemini/commands/discuss.toml"
+  copy_file "$HARNESS_DIR/.gemini/commands/plan.toml"           "$TARGET/.gemini/commands/plan.toml"
+  copy_file "$HARNESS_DIR/.gemini/commands/execute.toml"        "$TARGET/.gemini/commands/execute.toml"
+  copy_file "$HARNESS_DIR/.gemini/commands/ship.toml"           "$TARGET/.gemini/commands/ship.toml"
+  copy_file "$HARNESS_DIR/.gemini/commands/pr-reviewer.toml"    "$TARGET/.gemini/commands/pr-reviewer.toml"
+
+  # Gemini 프롬프트가 참조하는 문서 템플릿. --cli=gemini 단독 시에도 Read 가능해야 한다.
+  copy_file "$HARNESS_DIR/templates/__docs/PRD.md"                "$TARGET/.gemini/templates/__docs/PRD.md"
+  copy_file "$HARNESS_DIR/templates/__docs/ARCHITECTURE.md"       "$TARGET/.gemini/templates/__docs/ARCHITECTURE.md"
+  copy_file "$HARNESS_DIR/templates/__docs/ADR.md"                "$TARGET/.gemini/templates/__docs/ADR.md"
+  copy_file "$HARNESS_DIR/templates/__docs/UI_GUIDE.md"           "$TARGET/.gemini/templates/__docs/UI_GUIDE.md"
+  copy_file "$HARNESS_DIR/templates/__docs/plan.schema.json"      "$TARGET/.gemini/templates/__docs/plan.schema.json"
+  copy_file "$HARNESS_DIR/templates/__docs/plan.example.json"     "$TARGET/.gemini/templates/__docs/plan.example.json"
+fi
+
 # ---- 2) 스택 스펙 파싱 -----------------------------------------------------
 
 IFS=',' read -r -a STACK_ENTRIES <<< "$STACK_SPEC"
@@ -301,12 +323,15 @@ tmp_root_content="$(mktemp)"
   fi
 } > "$tmp_root_content"
 
-# Claude: CLAUDE.md / Codex: AGENTS.md — 동일 본문을 CLI 별 타깃에 분배
+# Claude: CLAUDE.md / Codex: AGENTS.md / Gemini: GEMINI.md — 동일 본문을 CLI 별 타깃에 분배
 if has_cli claude; then
   merge_claude "$TARGET/CLAUDE.md" "$tmp_root_content"
 fi
 if has_cli codex; then
   merge_claude "$TARGET/AGENTS.md" "$tmp_root_content"
+fi
+if has_cli gemini; then
+  merge_claude "$TARGET/GEMINI.md" "$tmp_root_content"
 fi
 rm -f "$tmp_root_content"
 
@@ -339,6 +364,9 @@ else
     fi
     if has_cli codex; then
       merge_claude "$app_dir/AGENTS.md" "$HARNESS_DIR/templates/$stack/CLAUDE.md"
+    fi
+    if has_cli gemini; then
+      merge_claude "$app_dir/GEMINI.md" "$HARNESS_DIR/templates/$stack/CLAUDE.md"
     fi
     case "$stack" in
       express|nextjs)     install_node_lint "$app_dir" ;;
@@ -383,8 +411,25 @@ if has_cli codex; then
   2. /discuss <작업 내용> 으로 요구사항 논의를 시작합니다.
      슬래시 커맨드가 자동 바인딩되지 않으면 @.codex/prompts/discuss.md 의 절차를 따르도록 요청해주세요.
   3. 승인 후 /plan → /execute → /ship 순으로 진행합니다.
-  * Codex 세션은 Claude 훅의 rm -rf / .env·시크릿 차단이 적용되지 않습니다.
+  * Codex 세션은 Claude 훅의 위험 명령 / .env·시크릿 차단이 적용되지 않습니다.
     승인 정책(on-request)과 샌드박스(workspace-write)로만 보호되므로 각별히 주의하세요.
+EOF
+fi
+
+if has_cli gemini; then
+  cat <<EOF
+
+[Gemini CLI] 다음 단계:
+  1. 프로젝트를 Gemini CLI 로 엽니다. .gemini/settings.json 의 "sandbox": true 권장값이
+     활성화되어 있는지 확인하세요 (OS-level sandbox 로 호스트 시스템·프로젝트 외부 쓰기를 차단).
+     보수적으로 운영하려면 그대로 두고, 비활성화가 필요하면 false 로 변경 후 사유를 팀에 공유.
+  2. /discuss <작업 내용> 으로 요구사항 논의를 시작합니다.
+     슬래시 커맨드 자동 바인딩은 본 사이클에서 실측하지 않았습니다. 바인딩이 안 되면
+     @.gemini/commands/discuss.toml 의 prompt 절차에 따라 진행해주세요.
+  3. 승인 후 /plan → /execute → /ship 순으로 진행합니다.
+  * Gemini 세션은 Claude 훅의 위험 명령 / .env·시크릿 차단이 적용되지 않습니다.
+    sandbox 와 GEMINI.md 의 에이전트 행동 규칙(soft lock) 두 계층으로만 보호되므로
+    프로젝트 내부에서의 위험 명령·시크릿 쓰기는 모델 준수에 의존합니다. 각별히 주의하세요.
 EOF
 fi
 
