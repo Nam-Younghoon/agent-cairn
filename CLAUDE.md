@@ -117,10 +117,17 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 ## 4. 에이전트 금지 행동 (하드락)
 
-아래 명령은 하네스 훅(`.claude/settings.json`의 `PreToolUse`)에 의해 **자동 차단**됩니다. 에이전트의 약속이 아니라 물리적 차단이며, 어떠한 우회 시도도 허용하지 않습니다.
+본 섹션의 표는 **모든 CLI 세션에서 금지되는 명령 패턴**을 정의합니다. Claude Code 세션에서는 하네스 훅(`.claude/settings.json`의 `PreToolUse`)이 이를 **물리적으로 차단** 합니다 — 에이전트의 약속이 아니라 차단이며, 어떠한 우회 시도도 허용하지 않습니다. Codex / Gemini 세션은 OS 샌드박스와 본 표를 따르는 soft lock 두 계층으로 보호되며, 어떤 세션에서도 아래 명령은 호출해서는 안 됩니다.
 
 > **CLI 별 유효 범위 (중요)**
-> 이 하드락은 **Claude Code 세션에서만 물리적으로 차단**됩니다. **Codex CLI 세션**에서는 `.codex/config.toml` 의 `approval_policy="on-request"` + `sandbox_mode="workspace-write"` 조합(+ `network_access=true`)으로만 보호되며, 아래 금지 대상을 사용자 승인 한 번으로 통과시킬 수 있습니다. 특히 **`.env`/시크릿 문자열 쓰기 차단** 은 Codex 세션에서 감지되지 않으므로, Codex 에서 시크릿을 다룰 때는 각별히 주의하고 커밋 전 `.gitignore` 와 `block_secret_files.py` 동등 검사를 수동으로 수행하세요. 자세한 배경은 `__docs/ADR-002.md` / `__docs/ADR-005.md` 참조.
+>
+> | CLI | 보호 메커니즘 | 자동 차단 범위 | 한계 |
+> | --- | --- | --- | --- |
+> | **Claude Code** | `.claude/hooks/*.py` (PreToolUse) | 본 표 전체 + `.env`/시크릿 문자열 쓰기 | 훅 우회 불가 — 가장 강력 |
+> | **Codex CLI** | `approval_policy="on-request"` + `sandbox_mode="workspace-write"` | 샌드박스 경계를 넘는 쓰기·네트워크 | 본 표는 사용자 승인 1회로 통과 가능. `.env`/시크릿 문자열 쓰기 자동 감지 없음 |
+> | **Gemini CLI** | `.gemini/settings.json` `"sandbox": true` + 본 표(soft lock) | 호스트 시스템·프로젝트 외부 쓰기 | 본 표는 행동 규칙으로만 강제. `.env`/시크릿 쓰기·프로젝트 내부 `rm -rf` 자동 차단 없음 |
+>
+> 자세한 배경은 `__docs/ADR.md` 의 ADR-002·005(Codex), ADR-013~015(Gemini) 를 참조하세요. Codex / Gemini 세션에서 시크릿이나 위험 명령을 다룰 때는 각별히 주의하고, 커밋 전 `.gitignore` 와 `block_secret_files.py` 동등 검사를 수동으로 수행하세요.
 
 | 금지 대상 | 차단 대상 명령 예시 |
 | --- | --- |
