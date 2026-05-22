@@ -1,25 +1,27 @@
 # agent-cairn
 
-여러 프레임워크를 위한 올인원 개발 하네스. **Claude Code** 와 **OpenAI Codex CLI** 를 동시 지원하며, 백엔드(Express·NestJS·SpringBoot Java·SpringBoot Kotlin)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다. 두 CLI 에서 `/discuss /plan /execute /ship` 신규 작업 4-커맨드 파이프라인과 `/pr-reviewer` PR 리뷰 트랙이 동일하게 동작합니다 (Codex 는 서브에이전트가 없어 **인라인 가이드**로 대체 — ADR-001).
+여러 프레임워크를 위한 올인원 개발 하네스. **Claude Code**, **OpenAI Codex CLI**, **Google Gemini CLI** 를 동시 지원하며, 백엔드(Express·NestJS·SpringBoot Java·SpringBoot Kotlin)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다. 세 CLI 에서 `/discuss /plan /execute /ship` 신규 작업 4-커맨드 파이프라인과 `/pr-reviewer` PR 리뷰 트랙이 동일하게 동작합니다 (Codex/Gemini 는 서브에이전트가 없어 **인라인 가이드**로 대체 — ADR-001/013).
 
 ## 핵심 구성
 
 | 구성요소 | 위치 | 설명 |
 | --- | --- | --- |
-| 팀 규격 본문 | `CLAUDE.md` (Claude) / `AGENTS.md` (Codex, 동일 본문 복제) | 문서/개발 컨벤션, 업무 프로세스, 금지 행동 |
-| 위험 명령 차단 훅 (Bash) | `.claude/hooks/block_dangerous.py` | `rm -rf`·`git force push`·`git reset --hard`·`sudo`·`chmod 777`·`curl\|sh`·운영 DB 스키마 변경 등 차단 **(Claude 세션 전용)** |
+| 팀 규격 본문 | `CLAUDE.md` (Claude) / `AGENTS.md` (Codex) / `GEMINI.md` (Gemini, 동일 본문 복제) | 문서/개발 컨벤션, 업무 프로세스, 금지 행동 |
+| 위험 명령 차단 훅 (Bash) | `.claude/hooks/block_dangerous.py` | 위험한 재귀 삭제·`git force push`·`git reset --hard`·`sudo`·`chmod 777`·`curl\|sh`·운영 DB 스키마 변경 등 차단 **(Claude 세션 전용)** |
 | 시크릿 차단 훅 (Write/Edit) | `.claude/hooks/block_secret_files.py` | `.env` 등 시크릿 파일 쓰기, 시크릿 문자열이 포함된 파일 쓰기 차단 **(Claude 세션 전용)** |
 | 시크릿 정규식 | `.claude/patterns/secrets.yaml` | AWS/GitHub/Slack/JWT/Stripe/Private Key/Kakao/NCP/Toss 등 27종 |
 | Claude 슬래시 커맨드 | `.claude/commands/{discuss,plan,execute,ship,pr-reviewer}.md` | 신규 작업 4-커맨드 파이프라인 + PR 리뷰 트랙 |
 | Codex 슬래시 커맨드 / 프롬프트 | `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` | 동일 이름·동일 흐름. 서브에이전트 호출 지점을 `## 인라인 가이드` 섹션으로 치환 |
 | Codex 기본 설정 | `.codex/config.toml` | `approval_policy="on-request"`, `sandbox_mode="workspace-write"`, `network_access=true` + 프로젝트 trust 승격 안내 |
-| 서브에이전트 (Claude) | `.claude/agents/{parallel-explorer,tdd-tester,pre-commit-reviewer,pr-reviewer}.md` | 탐색·TDD·리뷰·PR 리뷰 전용. Codex 는 네이티브 미사용, 인라인 가이드로 대체 (ADR-001) |
-| 스택별 CLAUDE.md | `templates/{express,nextjs,flutter,nestjs,springboot,springboot-kotlin}/CLAUDE.md` | 아키텍처·스크립트·테스트 정책 + 올바른 모양 예시. `--cli=codex` 시 동일 본문이 스택 경로의 `AGENTS.md` 로도 복제 |
+| Gemini 슬래시 커맨드 | `.gemini/commands/{discuss,plan,execute,ship,pr-reviewer}.toml` | 동일 이름·동일 흐름. TOML 단일 파일 (description + prompt 인라인). 서브에이전트 호출 지점은 인라인 가이드로 치환 (ADR-013) |
+| Gemini 기본 설정 | `.gemini/settings.json` | `{"sandbox": true}` — OS-level sandbox 권장값. 비활성화 시 위험 명령·시크릿 보호가 GEMINI.md soft lock 만 남음 (ADR-014) |
+| 서브에이전트 (Claude) | `.claude/agents/{parallel-explorer,tdd-tester,pre-commit-reviewer,pr-reviewer}.md` | 탐색·TDD·리뷰·PR 리뷰 전용. Codex/Gemini 는 네이티브 미사용, 인라인 가이드로 대체 (ADR-001/013) |
+| 스택별 CLAUDE.md | `templates/{express,nextjs,flutter,nestjs,springboot,springboot-kotlin}/CLAUDE.md` | 아키텍처·스크립트·테스트 정책 + 올바른 모양 예시. `--cli=codex,gemini` 포함 시 동일 본문이 스택 경로의 `AGENTS.md` / `GEMINI.md` 로도 복제 |
 | 문서 템플릿 | `templates/__docs/` | PRD / ARCHITECTURE / ADR / UI_GUIDE / plan.schema.json |
 | 린트/포매터 | `templates/node/`, `templates/nestjs/eslint.config.mjs`, `templates/flutter/analysis_options.yaml`, `templates/springboot{,-kotlin}/spotless.gradle.kts` | ESLint(flat) + Prettier, NestJS 전용 ESLint, analysis_options, Spotless(옵트인) |
-| PR 템플릿 | `templates/github/PULL_REQUEST_TEMPLATE.md` | 하네스 체크리스트 포함. **CLI 무관** (Claude/Codex 모두 공용) |
-| 설치 스크립트 | `scripts/install.sh` | `--cli` 로 Claude/Codex 선택(혼용 가능), 단일·다중·모노레포 스택, 마커 기반 스마트 병합 |
-| 셀프 테스트 | `scripts/test-harness.sh`, `tests/` | pytest + 설치 시나리오 회귀 (현재 PASS=214) |
+| PR 템플릿 | `templates/github/PULL_REQUEST_TEMPLATE.md` | 하네스 체크리스트 포함. **CLI 무관** (Claude/Codex/Gemini 모두 공용) |
+| 설치 스크립트 | `scripts/install.sh` | `--cli` 로 Claude/Codex/Gemini 선택(혼용 가능), 단일·다중·모노레포 스택, 마커 기반 스마트 병합 |
+| 셀프 테스트 | `scripts/test-harness.sh`, `tests/` | pytest + 설치 시나리오 회귀 (현재 PASS=269) |
 
 ## 슬래시 커맨드
 
@@ -65,25 +67,31 @@ git clone <이 레포> /tmp/agent-cairn
 # Codex CLI 단독
 /tmp/agent-cairn/scripts/install.sh --cli=codex --stack=express --target=/path/to/project
 
+# Gemini CLI 단독
+/tmp/agent-cairn/scripts/install.sh --cli=gemini --stack=express --target=/path/to/project
+
 # Claude + Codex 혼용 (팀 내 CLI 혼용 시)
 /tmp/agent-cairn/scripts/install.sh --cli=claude,codex --stack=nextjs --target=/path/to/project
+
+# 3-way 혼용 (Claude + Codex + Gemini 동시)
+/tmp/agent-cairn/scripts/install.sh --cli=claude,codex,gemini --stack=nextjs --target=/path/to/project
 
 # 풀스택 개인 프로젝트 (여러 스택 동시)
 /tmp/agent-cairn/scripts/install.sh --stack=express,nextjs,flutter --target=/path/to/project
 
-# SpringBoot 에 포매터(Spotless) 옵트인 (Codex 포함 혼용도 지원)
-/tmp/agent-cairn/scripts/install.sh --cli=claude,codex --stack=springboot-kotlin --with-spotless --target=/path/to/project
+# SpringBoot 에 포매터(Spotless) 옵트인 (Codex/Gemini 포함 혼용도 지원)
+/tmp/agent-cairn/scripts/install.sh --cli=claude,codex,gemini --stack=springboot-kotlin --with-spotless --target=/path/to/project
 
-# 모노레포 (앱별 경로, Claude+Codex 동시)
+# 모노레포 (앱별 경로, 3-way 동시)
 /tmp/agent-cairn/scripts/install.sh \
-  --cli=claude,codex \
+  --cli=claude,codex,gemini \
   --stack='express:apps/api,nextjs:apps/web,flutter:apps/mobile,nestjs:apps/api-nest,springboot-kotlin:apps/api-kotlin' \
   --with-spotless \
   --target=/path/to/monorepo
 ```
 
 옵션:
-- `--cli=<list>` (기본값 `claude`): `claude | codex` 중 하나 또는 콤마 결합. `claude` 미포함 시 `.claude/` 와 `CLAUDE.md` 를 배포하지 않으며, `codex` 포함 시 `AGENTS.md` 와 `.codex/` 자산을 추가 배포.
+- `--cli=<list>` (기본값 `claude`): `claude | codex | gemini` 중 하나 또는 콤마 결합. `claude` 미포함 시 `.claude/` 와 `CLAUDE.md` 를 배포하지 않으며, `codex` 포함 시 `AGENTS.md` 와 `.codex/` 자산을, `gemini` 포함 시 `GEMINI.md` 와 `.gemini/` 자산을 추가 배포.
 - `--stack=<spec>` (필수): `express | nextjs | flutter | nestjs | springboot | springboot-kotlin` 중 하나 또는 콤마 결합. 앱별 경로는 `<stack>:<path>` 로 지정.
 - `--target=<경로>` (기본: 현재 디렉토리).
 - `--force`: 기존 파일 덮어쓰기 허용 (CLAUDE.md/AGENTS.md 는 마커 구간만 덮어써도 되므로 대부분 불필요).
@@ -93,6 +101,7 @@ git clone <이 레포> /tmp/agent-cairn
 1. **공통**: `.gitignore` 에 하네스 블록 추가 (`__docs/`, `.env`, `.codex/sessions/` 등), `.env.example` 배포, `.github/PULL_REQUEST_TEMPLATE.md` 배포, 스택별 린트/포매터 설정.
 2. **Claude 포함 시**: `.claude/` (settings, hooks, patterns, commands, agents, templates/__docs) 배포 + `CLAUDE.md` 생성·마커 병합 (`<!-- agent-cairn:start -->` 안쪽만 교체, 바깥쪽 사용자 커스텀 보존). 모노레포 스택 경로에도 `CLAUDE.md` 생성.
 3. **Codex 포함 시**: `.codex/config.toml` 와 `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` 를 **루트 1회**만 배포, `AGENTS.md` 를 루트·모노레포 스택 경로에 `CLAUDE.md` 와 동일 본문으로 마커 병합. 종료 메시지에 `codex projects trust <target>` 안내 출력.
+4. **Gemini 포함 시**: `.gemini/settings.json` 와 `.gemini/commands/{discuss,plan,execute,ship,pr-reviewer}.toml` 를 **루트 1회**만 배포, `GEMINI.md` 를 루트·모노레포 스택 경로에 동일 본문으로 마커 병합. 종료 메시지에 sandbox 권장값·슬래시 바인딩 fallback·하드락 비대칭 경고 출력.
 
 ### Codex 설치 후 할 일 (수동)
 
@@ -116,6 +125,23 @@ trust_level = "trusted"
 - `@.codex/prompts/pr-reviewer.md 의 절차를 따라 PR <번호> 를 리뷰해주세요.`
 ```
 
+### Gemini 설치 후 할 일 (수동)
+
+Gemini CLI 는 프로젝트 루트의 `GEMINI.md` 와 `.gemini/commands/<n>.toml` 을 컨텍스트·슬래시 커맨드 정의로 자동 인식합니다. 설치 직후 다음을 확인하세요.
+
+1. **`.gemini/settings.json` 검토** — 기본값은 `{"sandbox": true}` 입니다. OS-level sandbox 가 호스트 시스템과 프로젝트 외부 쓰기를 차단하므로 가능한 한 유지하세요. 비활성화가 필요한 환경(예: 컨테이너 안에서 또 sandbox 가 작동 안 함)에서는 `false` 로 변경하고 사유를 팀에 공유합니다 — 위험 명령·시크릿 보호가 `GEMINI.md` 의 soft lock 만 남게 됩니다 (ADR-014).
+
+2. **슬래시 커맨드 바인딩 확인** — Gemini 세션에서 `/discuss <설명>` 호출 시 `.gemini/commands/discuss.toml` 의 `prompt` 본문이 실행되는지 확인하세요. 자동 바인딩이 안 되면(본 사이클에서 실측 미수행 — Codex 의 ADR-004 와 평행) `GEMINI.md` 에 아래 fallback 섹션을 추가합니다.
+
+```markdown
+## 슬래시 커맨드 대체 — Gemini
+- `@.gemini/commands/discuss.toml 의 prompt 절차에 따라 진행해주세요.`
+- `@.gemini/commands/plan.toml ...` / `@.gemini/commands/execute.toml ...` / `@.gemini/commands/ship.toml ...`
+- `@.gemini/commands/pr-reviewer.toml 의 prompt 절차에 따라 PR <번호> 를 리뷰해주세요.`
+```
+
+3. **하드락 비대칭 인지** — Gemini 세션에서는 `.env`/시크릿 자동 차단과 프로젝트 내부 위험 명령 자동 차단이 동작하지 않습니다. 보호는 OS sandbox + `GEMINI.md` §4 행동 규칙 두 계층뿐입니다 (ADR-014). 커밋 전 `git diff` 로 시크릿·`.env` 누출을 수동 검토하는 절차를 팀 내에서 약속하세요.
+
 ### 기존 설치 사용자 — 업데이트 유의사항
 
 이미 `install.sh` 를 실행한 프로젝트에서는 `.gitignore` 에 `agent-cairn — 하네스 기본 규칙` 마커가 있으면 **Codex 선제 방어 블록이 자동 추가되지 않습니다**. 아래 블록을 `.gitignore` 에 수동 추가하거나, 기존 블록을 제거 후 `install.sh --cli=claude,codex ...` 을 재실행하세요.
@@ -133,7 +159,7 @@ trust_level = "trusted"
 ## 하드락 (훅이 자동 차단)
 
 > **CLI 별 유효 범위 (필독)**
-> 아래 하드락은 **Claude Code 세션에서만 물리적으로 차단**됩니다. **Codex CLI 세션**에서는 `.codex/config.toml` 의 `approval_policy="on-request"` + `sandbox_mode="workspace-write"` 로만 보호되어, 사용자가 승인을 누르면 동일 명령이 통과됩니다. 특히 **`.env` / 시크릿 문자열 쓰기 차단** 은 Codex 세션에서 감지되지 않습니다. Codex 사용자는 커밋 전 수동으로 `git diff` 를 검토하고 `.env`/토큰 누출을 확인하세요.
+> 아래 하드락은 **Claude Code 세션에서만 물리적으로 차단**됩니다. **Codex CLI 세션**에서는 `.codex/config.toml` 의 `approval_policy="on-request"` + `sandbox_mode="workspace-write"` 로만 보호되어, 사용자가 승인을 누르면 동일 명령이 통과됩니다. **Gemini CLI 세션**에서는 `.gemini/settings.json` 의 `"sandbox": true` 로 호스트 시스템·프로젝트 외부 쓰기만 차단되고, 프로젝트 내부의 위험 명령·`.env` 쓰기는 `GEMINI.md` §4 의 에이전트 행동 규칙(soft lock) 에만 의존합니다 — 모델 준수에 깨질 수 있는 보호입니다. 특히 **`.env` / 시크릿 문자열 쓰기 차단** 은 Codex/Gemini 세션에서 감지되지 않습니다. Codex/Gemini 사용자는 커밋 전 수동으로 `git diff` 를 검토하고 `.env`/토큰 누출을 확인하세요.
 >
 > **approval_policy 의 실제 의미**: "on-request" 는 "매 명령마다 승인" 이 아니라 `sandbox_mode` 경계(프로젝트 밖 쓰기 등)를 넘을 때만 승인을 요청합니다. `network_access=true` 는 `npm install`·`git push`·`pip install` 같은 일상 작업이 매번 승인되는 피로감을 줄이기 위한 기본값입니다. 보수적으로 조정하려면 `.codex/config.toml` 에서 `network_access=false` 또는 `approval_policy="untrusted"` / `sandbox_mode="read-only"` 로 재정의하세요.
 
@@ -183,5 +209,6 @@ python3 -m pytest
 
 - **Codex 훅 stable 승격 후 하드락 이중화** — `features.codex_hooks` 가 정식 기능이 되면 `.claude/hooks/*.py` 를 `.codex/hooks/` 로 이식해 두 세션에서 동일한 물리 차단을 제공 (ADR-002).
 - **`.codex/agents/*.toml` 네이티브 서브에이전트 배포** — 인라인 가이드(현재) 대신 Codex 공식 서브에이전트 메커니즘을 쓰면 품질·컨텍스트 분리 개선 가능 (ADR-001).
-- **슬래시 커맨드 자동 바인딩 실측 자동화** — `CODEX_CLI_AVAILABLE=1` opt-in 으로 `test-harness.sh` 가 실제 Codex 세션을 띄워 `/discuss` 바인딩을 검증 (ADR-004).
-- **Gemini CLI 어댑터 지원** — `--cli=gemini` 추가. Gemini 의 `GEMINI.md` 와 `.gemini/commands/*.toml` 포팅.
+- **슬래시 커맨드 자동 바인딩 실측 자동화 (Codex)** — `CODEX_CLI_AVAILABLE=1` opt-in 으로 `test-harness.sh` 가 실제 Codex 세션을 띄워 `/discuss` 바인딩을 검증 (ADR-004).
+- **슬래시 커맨드 자동 바인딩 실측 자동화 (Gemini)** — `GEMINI_CLI_AVAILABLE=1` opt-in 으로 `.gemini/commands/<n>.toml` 자동 바인딩을 실측. Codex 트랙과 동일 패턴.
+- **Gemini 훅 정식 지원 시 하드락 이중화** — Gemini CLI 가 PreToolUse 류 훅을 정식 지원하면 `.claude/hooks/*.py` 동등 자산을 `.gemini/hooks/` 로 이식, ADR-014 를 superseded 처리.
