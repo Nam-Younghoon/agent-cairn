@@ -159,6 +159,18 @@ feat: 사용자 프로필 이미지 업로드 추가
 - 슬래시 커맨드 자동 바인딩은 본 사이클에서 실측하지 않음. 실패 시 `AGENTS.md` 에
   `@.codex/prompts/<name>.md 의 절차를 따라 진행` 같은 파일 참조로 fallback 가능.
 
+### Gemini CLI (ADR-013, ADR-014, ADR-015)
+- `.gemini/commands/{discuss,plan,execute,ship,pr-reviewer}.toml` — Claude/Codex 와 동일 이름·동일 흐름.
+  TOML 단일 파일에 `description = "..."` + `prompt = """..."""` 두 키만 두고, `prompt` 본문에
+  Codex 의 `.codex/prompts/<n>.md` 와 동일한 절차를 인라인 임베드 (ADR-013). Claude 서브에이전트
+  호출 지점은 Codex 와 동일하게 `## 인라인 가이드 —` 섹션으로 치환.
+- `.gemini/settings.json` — `{"sandbox": true}` 최소 키. Gemini CLI 의 OS-level sandbox 권장값.
+  비활성화 시 위험 명령·`.env` 보호가 GEMINI.md §4 soft lock 만 남음 (ADR-014).
+- 슬래시 커맨드 자동 바인딩은 본 사이클에서 실측하지 않음. 실패 시 `GEMINI.md` 에
+  `@.gemini/commands/<n>.toml 의 prompt 절차에 따라 진행` 같은 파일 참조로 fallback 가능.
+- 안전장치 정책: LLM 셀프 grep 검증은 신뢰 모델 안티패턴으로 기각 (ADR-014). 향후 Gemini hooks
+  정식 지원 시 `.gemini/hooks/` 로 이중화하고 ADR-014 를 superseded 처리할 예정.
+
 ### 공통
 - `templates/` — 프로젝트 유형별 시작 템플릿 (Claude `CLAUDE.md` 와 Codex `AGENTS.md` 공용 본문)
 - `scripts/install.sh` — 신규 프로젝트에 하네스 주입. `--cli=<list>` 로 배포 대상 CLI 선택 (기본값 `claude`, `claude,codex` 혼용 가능)
