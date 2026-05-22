@@ -12,6 +12,13 @@
 - **test-harness.sh §4e-3 신규 섹션** — `/pr-reviewer` 자산의 배포·미배포 회귀 + 슬래시 커맨드 frontmatter argument-hint + 7단계/금지 섹션 존재 + Claude 슬래시 커맨드의 `allowed-tools` 화이트리스트(`Edit`/`NotebookEdit` 미포함) + Claude 서브에이전트의 `tools` 화이트리스트(`Write`/`Edit` 미포함) + Codex 인라인 가이드 섹션(`## 인라인 가이드 — PR 리뷰`) 존재를 모두 검증. 4e for 루프의 cmd 리스트(`discuss/plan/execute/ship`) 에도 `pr-reviewer` 를 추가해 prompts 존재·인라인 가이드 섹션·모노레포 미배포 검증이 자동 확장. 본 사이클 종료 시 회귀 통과: PASS=214 / FAIL=0.
 - **루트 `CLAUDE.md` §3.1 / §3.2 / §5 갱신** — §3.1 의 흐름 다이어그램을 "4개 → 5개 슬래시 커맨드" 로 확장하고 PR 리뷰 트랙을 별도 블록으로 시각화. §3.2 서브에이전트 표에 `pr-reviewer` 행 추가. §5 Claude/Codex 참고 섹션의 자산 목록에 `pr-reviewer` 반영.
 
+- **Google Gemini CLI 어댑터 지원** — `install.sh --cli` 허용값에 `gemini` 추가 (Claude/Codex 와 콤마 결합 가능, 3-way `--cli=claude,codex,gemini` 지원). `gemini` 포함 시 `GEMINI.md`(CLAUDE.md/AGENTS.md 와 동일 본문, 마커 병합 동일 적용), `.gemini/settings.json`(`{"sandbox": true}` 최소 키 — OS-level sandbox 권장값), `.gemini/commands/{discuss,plan,execute,ship,pr-reviewer}.toml`(Claude/Codex 와 **동일 이름·동일 흐름**, TOML 단일 파일에 `description` + `prompt = """..."""` 로 절차 본문을 인라인 임베드, Claude 서브에이전트 호출 지점은 `## 인라인 가이드` 섹션으로 치환) 을 타깃 루트에만 배포. ADR-013(슬래시 커맨드 TOML 단일 파일 채택), ADR-014(안전장치는 sandbox + soft lock 두 계층, LLM 셀프 grep 검증 기각), ADR-015(GEMINI.md 마커 병합 방식) 신규 등록.
+- **모노레포 GEMINI.md 복제** — `--cli=gemini` + 모노레포 스택 스펙(`express:apps/api,...`) 에서 각 앱 경로에 동일 본문의 `GEMINI.md` 생성. `.gemini/settings.json`·`.gemini/commands/*.toml` 은 루트 1회만 배포 (Codex 와 동일 정책).
+- **install.sh 마무리 안내 Gemini 분기** — `--cli=gemini` 포함 실행 시 stdout 에 sandbox 권장값 안내, 슬래시 커맨드 자동 바인딩 미검증 사유 + fallback(`@.gemini/commands/<n>.toml`), 하드락 비대칭 경고(위험 명령·`.env` 자동 차단 없음, sandbox + soft lock 만) 3가지 출력.
+- **루트 `CLAUDE.md` §4 하드락 갱신 (3-CLI 매트릭스)** — Claude/Codex 2-tier 설명을 Claude/Codex/Gemini 3-tier 표로 확장. Gemini 행에 보호 메커니즘(sandbox + 본 표 soft lock), 자동 차단 범위(호스트·프로젝트 외부 쓰기), 한계(`.env`·프로젝트 내부 위험 명령 자동 차단 없음) 명시. 이 본문이 install.sh 의 merge 소스이므로 3-way 컨텍스트 파일에 동일하게 분배.
+- **test-harness.sh §4i 신규 섹션 (GEMINI.md 루트 배포 + Gemini 자산)** — gemini-only / 3-way 혼용 / 모노레포 + Gemini / claude-only·codex-only 시 .gemini/ 부재 / 3-way 마커 본문 일치 (CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md diff 빈 출력) / 각 `commands/*.toml` 의 인라인 가이드 섹션 존재 / `execute.toml` 의 탐색·TDD·리뷰 3종 가이드 존재 / `--cli=bogus` 거부 메시지에 `gemini` 토큰 포함 검증을 추가. 본 사이클 종료 시 회귀 통과: **PASS=269 / FAIL=0** (이전 214 → 269, 55건 증분).
+- **README 갱신** — 핵심 구성 표에 Gemini 슬래시 커맨드·기본 설정·컨텍스트 파일 행 신설. 설치 예제에 `--cli=gemini` 단독·3-way 혼용 추가. 신규 섹션 "Gemini 설치 후 할 일 (수동)" — sandbox 검토·슬래시 바인딩 fallback·하드락 비대칭 인지 3가지 안내. 후속 로드맵에서 "Gemini CLI 어댑터 지원" 이관, 신규 항목 2건(슬래시 바인딩 실측 자동화 Gemini 트랙, Gemini 훅 정식 지원 시 하드락 이중화) 등록.
+
 - **OpenAI Codex CLI 어댑터 지원** — `install.sh --cli=<list>` 플래그 신설(허용값 `claude`/`codex`, 콤마 결합, 기본값 `claude`). `codex` 포함 시 `AGENTS.md`(CLAUDE.md 와 동일 본문, 마커 병합 동일 적용), `.codex/config.toml`(ADR-005 기본값: `approval_policy="on-request"`, `sandbox_mode="workspace-write"`, `[sandbox_workspace_write] network_access=true`, 프로젝트 trust 승격 안내 주석), `.codex/prompts/{discuss,plan,execute,ship}.md`(Claude 커맨드와 **동일 이름·동일 흐름**, Claude 서브에이전트 3종 호출 지점을 `## 인라인 가이드 — 병렬 탐색 / 실패 테스트 선 작성 / 커밋 전 리뷰` 섹션으로 치환) 을 타깃 루트에만 배포.
 - **모노레포 AGENTS.md 복제** — `--cli=codex` + 모노레포 스택 스펙(`express:apps/api,...`) 에서 각 앱 경로에 `CLAUDE.md` 와 동일 본문의 `AGENTS.md` 생성. `.codex/config.toml`, `.codex/prompts/` 는 루트 1회만 배포(Codex 가 git root 부터 walk).
 - **`templates/gitignore.partial` 선제 방어 블록** — `.codex/sessions/`, `.codex/history*`, `.codex/cache/`, `.codex/*.log`, `.codex/config.local.toml` 배제 + `!.codex/config.toml`, `!.codex/prompts/` 화이트리스트. Codex 세션·히스토리·토큰이 실수로 커밋되는 사고를 선제 차단.
@@ -33,15 +40,18 @@
 - 루트 `CLAUDE.md` "4. 하드락" 섹션에 **Claude 세션 전용** 표기 추가 — Codex 세션은 `approval_policy` / `sandbox_mode` 로만 보호됨을 명시.
 
 ### 유의사항 / 후속 이슈
-- **Codex 세션 보안 비대칭**: Claude 훅의 `rm -rf`·`git push --force`·운영 DB 파괴·**`.env`/시크릿 문자열 쓰기 차단** 은 **Claude 세션 전용**입니다. Codex 세션에서는 `approval_policy="on-request"` 로 샌드박스 경계를 넘을 때만 승인을 요구하며, 시크릿 문자열은 감지되지 않습니다. 시크릿·위험 명령을 다룰 때 각별히 주의하세요.
+- **Codex 세션 보안 비대칭**: Claude 훅의 위험 명령·**`.env`/시크릿 문자열 쓰기 차단** 은 **Claude 세션 전용**입니다. Codex 세션에서는 `approval_policy="on-request"` 로 샌드박스 경계를 넘을 때만 승인을 요구하며, 시크릿 문자열은 감지되지 않습니다. 시크릿·위험 명령을 다룰 때 각별히 주의하세요.
+- **Gemini 세션 보안 비대칭**: Gemini 세션도 Claude 훅의 물리 차단을 받지 않습니다. 보호는 (1) `.gemini/settings.json` 의 OS-level sandbox(`"sandbox": true`) 와 (2) `GEMINI.md` §4 의 에이전트 행동 규칙(soft lock) 두 계층입니다. sandbox 는 호스트 시스템·프로젝트 외부 쓰기를 차단하지만, **프로젝트 내부의 위험 명령 (재귀 강제 삭제·강제 푸시·`.env` 쓰기 등)** 은 모델 준수에 의존하는 soft lock 만 남습니다. ADR-014 가 LLM 셀프 grep 검증을 신뢰 모델 안티패턴으로 기각했으므로, 위험 명령 정식 차단은 Gemini CLI 의 hooks 정식 지원 후 이중화로 처리될 예정.
 - **`approval_policy` 의 실제 의미**: "매 명령 승인"이 아니라 샌드박스 경계(프로젝트 밖 쓰기 등)를 넘을 때만 승인. `network_access=true` 는 패키지 관리자·git 원격 연동의 승인 피로감을 줄이기 위한 기본값이며, 보수적으로 조정하려면 `.codex/config.toml` 에서 `false` / `"untrusted"` / `"read-only"` 로 재정의하세요.
 - **Codex 슬래시 커맨드 자동 바인딩 미검증** (ADR-004): 사용자 로컬에 Codex CLI 가 없어 본 사이클에서 실측을 수행하지 않았습니다. 설치 후 `/discuss` 가 `.codex/prompts/discuss.md` 로 바인딩되는지 확인하고, 실패 시 `AGENTS.md` 에 `@.codex/prompts/discuss.md 의 절차를 따라 진행` 같은 파일 참조 섹션을 추가해 fallback 으로 사용하세요. 자동화·확정은 후속 이슈(`chore/codex-slash-command-binding-validation`) 로 이관.
-- **기존 설치 사용자 업데이트**: `install.sh --cli=codex` 재실행 시 타깃 `.gitignore` 에 이미 `agent-cairn — 하네스 기본 규칙` 마커가 있으면 **Codex 방어 블록이 자동 추가되지 않습니다**. 해당 블록을 수동으로 `.gitignore` 에 추가하거나, 기존 마커 블록을 제거 후 `install.sh` 를 재실행하세요.
+- **Gemini 슬래시 커맨드 자동 바인딩 미검증** (Codex 의 ADR-004 와 평행): Gemini CLI 의 커스텀 슬래시 커맨드 자동 바인딩(`.gemini/commands/<n>.toml`)이 공식 사양 수준으로 확정되어 있지 않아 본 사이클에서 실측을 수행하지 않았습니다. 설치 후 `/discuss` 가 `.gemini/commands/discuss.toml` 의 `prompt` 본문으로 바인딩되는지 확인하고, 실패 시 `GEMINI.md` 에 `@.gemini/commands/discuss.toml 의 prompt 절차에 따라 진행` 파일 참조 섹션을 추가해 fallback 으로 사용하세요. 자동화는 후속 이슈(`chore/gemini-slash-command-binding-validation`) 로 이관.
+- **기존 설치 사용자 업데이트**: `install.sh --cli=codex` 재실행 시 타깃 `.gitignore` 에 이미 `agent-cairn — 하네스 기본 규칙` 마커가 있으면 **Codex 방어 블록이 자동 추가되지 않습니다**. 해당 블록을 수동으로 `.gitignore` 에 추가하거나, 기존 마커 블록을 제거 후 `install.sh` 를 재실행하세요. Gemini 어댑터는 별도의 `.gemini/` gitignore 방어 블록을 추가하지 않습니다 (Codex 처럼 세션 캐시 파일 형식이 확정되지 않아 — 후속 사이클에서 보강 검토).
 - **후속 로드맵**:
   - Codex 훅(`features.codex_hooks`) stable 승격 후 Claude 하드락 이중화.
   - `.codex/agents/*.toml` 네이티브 서브에이전트 배포 (현재는 인라인 가이드로 격하 — ADR-001).
-  - `CODEX_CLI_AVAILABLE=1` opt-in 테스트로 슬래시 커맨드 자동 바인딩 검증 자동화.
-  - Gemini CLI 어댑터 지원.
+  - `CODEX_CLI_AVAILABLE=1` opt-in 테스트로 슬래시 커맨드 자동 바인딩 검증 자동화 (Codex).
+  - `GEMINI_CLI_AVAILABLE=1` opt-in 테스트로 슬래시 커맨드 자동 바인딩 검증 자동화 (Gemini).
+  - Gemini 정식 hooks 도입 시 ADR-014 superseded 처리 + `.gemini/hooks/` 이식으로 하드락 이중화.
 - **PR 템플릿 변경 없음** — `templates/github/PULL_REQUEST_TEMPLATE.md` 는 CLI 무관.
 
 ## [0.3.0] — 2026-04-17
