@@ -20,9 +20,10 @@
 # 동작:
 #   - --cli 에 명시된 CLI 어댑터 자산만 --target (리포지토리 루트) 에 설치한다.
 #     · claude 포함 시: .claude/ 자산 + 루트 CLAUDE.md
-#     · codex 포함 시: 루트 AGENTS.md (+ 이후 스텝에서 .codex/)
+#     · codex  포함 시: 루트 AGENTS.md + .codex/ (config.toml + prompts/*.md + templates/__docs/*)
+#     · gemini 포함 시: 루트 GEMINI.md + .gemini/ (settings.json + commands/*.toml + templates/__docs/*)
 #   - 스택 스펙에 경로가 있으면 해당 경로에도 CLAUDE.md 와 스택별 린트 설정을 추가 설치.
-#   - CLAUDE.md/AGENTS.md 는 <!-- agent-cairn:start --> ... <!-- agent-cairn:end -->
+#   - CLAUDE.md/AGENTS.md/GEMINI.md 는 <!-- agent-cairn:start --> ... <!-- agent-cairn:end -->
 #     마커 기반으로 스마트 병합된다. 사용자가 마커 밖에 추가한 내용은 보존된다.
 
 set -euo pipefail
@@ -31,7 +32,7 @@ STACK_SPEC=""
 TARGET="$(pwd)"
 FORCE=0
 WITH_SPOTLESS=0
-CLI_SPEC="claude"  # 기본값. 허용값: claude | codex (콤마 결합 가능)
+CLI_SPEC="claude"  # 기본값. 허용값: claude | codex | gemini (콤마 결합 가능)
 
 for arg in "$@"; do
   case $arg in
