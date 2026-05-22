@@ -73,6 +73,12 @@ required=(
   ".codex/prompts/plan.md"
   ".codex/prompts/execute.md"
   ".codex/prompts/ship.md"
+  ".gemini/commands/discuss.toml"
+  ".gemini/commands/plan.toml"
+  ".gemini/commands/execute.toml"
+  ".gemini/commands/ship.toml"
+  ".gemini/commands/pr-reviewer.toml"
+  ".gemini/settings.json"
 )
 for f in "${required[@]}"; do
   if [[ -f "$f" ]]; then
@@ -250,13 +256,46 @@ else
   fail "--cli=claude,codex 가 정상 종료되지 않음"
 fi
 
-# --cli=bogus — 비정상 종료
+# --cli=bogus — 비정상 종료 + 허용값 목록에 gemini 포함
 CLI_INVALID_DIR="/tmp/ht-st-$TS-cli-invalid"
 mkdir -p "$CLI_INVALID_DIR"
-if bash scripts/install.sh --cli=bogus --stack=express --target="$CLI_INVALID_DIR" >/dev/null 2>&1; then
+if err="$(bash scripts/install.sh --cli=bogus --stack=express --target="$CLI_INVALID_DIR" 2>&1)"; then
   fail "--cli=bogus 가 잘못 통과됨"
 else
   ok "--cli=bogus 거부 확인"
+  if grep -q "gemini" <<< "$err"; then
+    ok "--cli=bogus 메시지에 'gemini' 토큰 포함"
+  else
+    fail "--cli=bogus 메시지에 'gemini' 토큰 누락"
+  fi
+fi
+
+# --cli=gemini 단독 — 파싱만 성공해야 함
+CLI_GEMINI_DIR="/tmp/ht-st-$TS-cli-gemini"
+mkdir -p "$CLI_GEMINI_DIR"
+if out="$(bash scripts/install.sh --cli=gemini --stack=express --target="$CLI_GEMINI_DIR" 2>&1)"; then
+  ok "--cli=gemini 파싱 통과"
+  if grep -q "cli=gemini" <<< "$out"; then
+    ok "--cli=gemini 로그 노출"
+  else
+    fail "--cli=gemini 로그 누락"
+  fi
+else
+  fail "--cli=gemini 가 정상 종료되지 않음"
+fi
+
+# --cli 3-way 콤마 결합 — claude,codex,gemini
+CLI_TRIPLE_DIR="/tmp/ht-st-$TS-cli-triple"
+mkdir -p "$CLI_TRIPLE_DIR"
+if out="$(bash scripts/install.sh --cli=claude,codex,gemini --stack=express --target="$CLI_TRIPLE_DIR" 2>&1)"; then
+  ok "--cli=claude,codex,gemini 파싱 통과"
+  if grep -Eq "cli=claude[, ]codex[, ]gemini" <<< "$out"; then
+    ok "--cli=claude,codex,gemini 로그 노출"
+  else
+    fail "--cli=claude,codex,gemini 로그 누락"
+  fi
+else
+  fail "--cli=claude,codex,gemini 가 정상 종료되지 않음"
 fi
 
 # --cli= (빈 값) — 비정상 종료 + 친절한 에러 메시지
@@ -710,6 +749,115 @@ assert_file_exists "seq codex→claude: AGENTS.md"           "$SEQ2_DIR/AGENTS.m
 assert_file_exists "seq codex→claude: CLAUDE.md"           "$SEQ2_DIR/CLAUDE.md"
 assert_file_exists "seq codex→claude: .codex/config.toml"    "$SEQ2_DIR/.codex/config.toml"
 assert_file_exists "seq codex→claude: .claude/settings.json" "$SEQ2_DIR/.claude/settings.json"
+
+echo
+echo "===== 4i) GEMINI.md 루트 배포 + Gemini 자산 ====="
+
+# (A) --cli=gemini 단독: GEMINI.md 존재, CLAUDE.md/AGENTS.md/.claude/.codex/ 부재
+GEMINI_ONLY_DIR="/tmp/ht-st-$TS-gemini-only"
+mkdir -p "$GEMINI_ONLY_DIR"
+if bash scripts/install.sh --cli=gemini --stack=express --target="$GEMINI_ONLY_DIR" >/dev/null 2>&1; then
+  ok "--cli=gemini 단독 설치 성공"
+else
+  fail "--cli=gemini 단독 설치 실패"
+fi
+assert_file_exists  "gemini-only: GEMINI.md"                  "$GEMINI_ONLY_DIR/GEMINI.md"
+assert_file_missing "gemini-only: CLAUDE.md 부재"             "$GEMINI_ONLY_DIR/CLAUDE.md"
+assert_file_missing "gemini-only: AGENTS.md 부재"             "$GEMINI_ONLY_DIR/AGENTS.md"
+assert_file_missing "gemini-only: .claude/settings.json 부재" "$GEMINI_ONLY_DIR/.claude/settings.json"
+assert_file_missing "gemini-only: .codex/config.toml 부재"    "$GEMINI_ONLY_DIR/.codex/config.toml"
+if grep -q "agent-cairn:start" "$GEMINI_ONLY_DIR/GEMINI.md" 2>/dev/null; then
+  ok "gemini-only: GEMINI.md 마커 블록 포함"
+else
+  fail "gemini-only: GEMINI.md 마커 블록 누락"
+fi
+
+# (B) .gemini/ 자산 배포 (commands 5종 + settings.json)
+for cmd in discuss plan execute ship pr-reviewer; do
+  assert_file_exists "gemini-only: commands/$cmd.toml" "$GEMINI_ONLY_DIR/.gemini/commands/$cmd.toml"
+done
+assert_file_exists "gemini-only: settings.json" "$GEMINI_ONLY_DIR/.gemini/settings.json"
+if grep -q '"sandbox"' "$GEMINI_ONLY_DIR/.gemini/settings.json" 2>/dev/null; then
+  ok "gemini-only: settings.json 에 sandbox 키 포함"
+else
+  fail "gemini-only: settings.json sandbox 키 누락"
+fi
+
+# (C) .gemini/templates/__docs/ 배포 (Codex 와 동일 정책)
+for tpl in PRD.md ARCHITECTURE.md ADR.md UI_GUIDE.md plan.schema.json plan.example.json; do
+  assert_file_exists "gemini-only: .gemini/templates/__docs/$tpl" \
+    "$GEMINI_ONLY_DIR/.gemini/templates/__docs/$tpl"
+done
+
+# (D) --cli=claude 단독: .gemini/ 부재 (CLAUDE_ONLY_DIR 는 4c 에서 생성)
+assert_file_missing "claude-only: .gemini/commands/discuss.toml 부재" \
+  "$CLAUDE_ONLY_DIR/.gemini/commands/discuss.toml"
+assert_file_missing "claude-only: .gemini/settings.json 부재" \
+  "$CLAUDE_ONLY_DIR/.gemini/settings.json"
+# --cli=codex 단독: .gemini/ 부재
+assert_file_missing "codex-only: .gemini/commands/discuss.toml 부재" \
+  "$CODEX_ONLY_DIR/.gemini/commands/discuss.toml"
+
+# (E) --cli=claude,codex,gemini 3-way 혼용: 3개 파일 모두 존재 + 마커 블록 본문 일치
+TRIPLE_DIR="/tmp/ht-st-$TS-triple"
+mkdir -p "$TRIPLE_DIR"
+if bash scripts/install.sh --cli=claude,codex,gemini --stack=express --target="$TRIPLE_DIR" >/dev/null 2>&1; then
+  ok "--cli=claude,codex,gemini 혼용 설치 성공"
+else
+  fail "--cli=claude,codex,gemini 혼용 설치 실패"
+fi
+assert_file_exists "triple: CLAUDE.md" "$TRIPLE_DIR/CLAUDE.md"
+assert_file_exists "triple: AGENTS.md" "$TRIPLE_DIR/AGENTS.md"
+assert_file_exists "triple: GEMINI.md" "$TRIPLE_DIR/GEMINI.md"
+if [[ -f "$TRIPLE_DIR/CLAUDE.md" && -f "$TRIPLE_DIR/AGENTS.md" && -f "$TRIPLE_DIR/GEMINI.md" ]]; then
+  if diff <(extract_marker_block "$TRIPLE_DIR/CLAUDE.md") \
+          <(extract_marker_block "$TRIPLE_DIR/AGENTS.md") > /dev/null \
+     && diff <(extract_marker_block "$TRIPLE_DIR/AGENTS.md") \
+             <(extract_marker_block "$TRIPLE_DIR/GEMINI.md") > /dev/null; then
+    ok "triple: CLAUDE.md ↔ AGENTS.md ↔ GEMINI.md 3-way 마커 블록 일치"
+  else
+    fail "triple: 3-way 마커 블록 불일치"
+  fi
+fi
+
+# (F) 모노레포 + --cli=gemini: 앱 경로에 GEMINI.md 마커 병합, .gemini/ 자산은 루트에만
+GEMINI_MONO_DIR="/tmp/ht-st-$TS-gemini-mono"
+mkdir -p "$GEMINI_MONO_DIR"
+if bash scripts/install.sh --cli=gemini --stack=express:apps/api,nextjs:apps/web \
+  --target="$GEMINI_MONO_DIR" >/dev/null 2>&1; then
+  ok "gemini-mono: 설치 성공"
+else
+  fail "gemini-mono: 설치 실패"
+fi
+for app in apps/api apps/web; do
+  assert_file_exists "gemini-mono: $app/GEMINI.md" "$GEMINI_MONO_DIR/$app/GEMINI.md"
+  if grep -q "agent-cairn:start" "$GEMINI_MONO_DIR/$app/GEMINI.md" 2>/dev/null; then
+    ok "gemini-mono: $app/GEMINI.md 마커 포함"
+  else
+    fail "gemini-mono: $app/GEMINI.md 마커 누락"
+  fi
+done
+assert_file_exists  "gemini-mono: root .gemini/settings.json" "$GEMINI_MONO_DIR/.gemini/settings.json"
+assert_file_missing "gemini-mono: apps/api/.gemini/ 부재"     "$GEMINI_MONO_DIR/apps/api/.gemini/settings.json"
+assert_file_missing "gemini-mono: apps/web/.gemini/ 부재"     "$GEMINI_MONO_DIR/apps/web/.gemini/settings.json"
+
+# (G) 각 commands/<n>.toml 의 prompt 본문 인라인 가이드 섹션 존재
+for cmd in discuss plan execute ship pr-reviewer; do
+  if grep -qF "## 인라인 가이드" "$GEMINI_ONLY_DIR/.gemini/commands/$cmd.toml" 2>/dev/null; then
+    ok "gemini-only: commands/$cmd.toml 에 인라인 가이드 섹션 포함"
+  else
+    fail "gemini-only: commands/$cmd.toml 에 인라인 가이드 섹션 누락"
+  fi
+done
+# execute.toml 는 탐색/TDD/리뷰 3종 모두 포함해야 함
+exec_toml="$GEMINI_ONLY_DIR/.gemini/commands/execute.toml"
+for guide in "병렬 탐색" "실패 테스트 선 작성" "커밋 전 리뷰"; do
+  if grep -qF "## 인라인 가이드 — $guide" "$exec_toml" 2>/dev/null; then
+    ok "gemini-only: execute.toml 의 '$guide' 가이드 포함"
+  else
+    fail "gemini-only: execute.toml 의 '$guide' 가이드 누락"
+  fi
+done
 
 echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
