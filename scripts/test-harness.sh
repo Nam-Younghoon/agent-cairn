@@ -66,6 +66,7 @@ required=(
   "templates/github/PULL_REQUEST_TEMPLATE.md"
   "templates/gitignore.partial"
   "templates/worktreeinclude.partial"
+  "scripts/worktree.sh"
   "templates/env.example"
   "scripts/install.sh"
   "scripts/_merge_claude.py"
@@ -940,6 +941,52 @@ for gi in ".gitignore" "templates/gitignore.partial"; do
     fi
   done
 done
+
+echo
+echo "===== 4m) scripts/worktree.sh 헬퍼 (new|list|clean) ====="
+WT_SCRIPT="$HARNESS_DIR/scripts/worktree.sh"
+if [[ -f "$WT_SCRIPT" ]] && bash -n "$WT_SCRIPT" 2>/dev/null; then
+  ok "worktree.sh: 존재 + bash -n 문법 통과"
+  # 격리된 임시 git 저장소에서 new/list/clean 동작 검증
+  WT_REPO="/tmp/ht-st-$TS-wt-repo"
+  rm -rf "$WT_REPO"; mkdir -p "$WT_REPO"
+  (
+    cd "$WT_REPO"
+    git init -q -b main
+    git config user.email t@example.com; git config user.name tester
+    printf 'SECRET_TOKEN=topsecret\n' > .env
+    printf '.env\n' > .worktreeinclude
+    printf 'root\n' > README.md
+    git add README.md .worktreeinclude
+    git commit -qm init
+  )
+  if new_out="$(cd "$WT_REPO" && bash "$WT_SCRIPT" new mytask 2>&1)"; then
+    ok "worktree.sh new mytask 성공"
+  else
+    fail "worktree.sh new mytask 실패: $new_out"
+  fi
+  assert_file_exists "worktree.sh: .worktrees/mytask 체크아웃" "$WT_REPO/.worktrees/mytask/README.md"
+  assert_file_exists "worktree.sh: .worktreeinclude 의 .env 승계 복사" "$WT_REPO/.worktrees/mytask/.env"
+  if grep -q "topsecret" <<< "$new_out"; then
+    fail "worktree.sh: 시크릿 값이 stdout 로그에 노출됨"
+  else
+    ok "worktree.sh: 시크릿 값 로그 비노출"
+  fi
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" list 2>&1) | grep -q "mytask"; then
+    ok "worktree.sh list 에 mytask 표시"
+  else
+    fail "worktree.sh list 에 mytask 누락"
+  fi
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" clean mytask >/dev/null 2>&1); then
+    ok "worktree.sh clean mytask 성공"
+  else
+    fail "worktree.sh clean mytask 실패"
+  fi
+  assert_file_missing "worktree.sh: clean 후 .worktrees/mytask 제거" "$WT_REPO/.worktrees/mytask"
+  rm -rf "$WT_REPO"
+else
+  fail "worktree.sh: 미생성 또는 문법 오류"
+fi
 
 echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
