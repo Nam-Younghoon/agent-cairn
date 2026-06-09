@@ -1,0 +1,16 @@
+# === agent-cairn — .worktreeinclude ===
+# 새 git worktree 를 만들 때 메인 워크트리에서 함께 가져올 gitignore 대상 파일 목록.
+# (이 파일들은 .gitignore 로 추적되지 않아 새 워크트리에 자동 복사되지 않으므로,
+#  베이스라인 테스트/빌드/postinstall 이 실패하는 함정을 막기 위해 명시적으로 승계한다.)
+#
+# - Claude Code 네이티브: `claude --worktree` 가 이 목록(.worktreeinclude)을 읽어 자동 복사.
+# - Codex/Gemini: `scripts/worktree.sh new <task>` 가 이 목록을 읽어 수동 복사(동일 동작 모사).
+#
+# 한 줄에 하나씩, 프로젝트 루트 기준 상대 경로. glob 패턴 가능.
+# 시크릿 값 자체는 적지 않는다 — 파일 경로만 나열한다.
+
+.env
+.env.local
+.env.development
+.env.production
+.env.staging

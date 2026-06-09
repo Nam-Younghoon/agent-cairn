@@ -74,6 +74,17 @@ PR 본문은 `__docs/PRD.md` 와 `plan.json` 으로부터 자동 생성:
 - `status` 를 `shipped` 로 전환.
 - 사용자에게 PR URL 과 요약 보고.
 
+## 7단계. 워크트리 정리 (해당 시)
+이 작업을 별도 워크트리에서 진행했다면, PR 이 머지된 뒤 워크트리를 정리한다(ADR-016/018).
+- Claude 네이티브 `claude --worktree <name>` 세션은 종료 시 자동 정리된다.
+- `--with-worktree` 로 설치된 프로젝트에서 헬퍼로 만든 워크트리는 `scripts/worktree.sh clean <task>` 로 제거한다.
+- 헬퍼 없이 수동으로 만든 워크트리는 직접 제거:
+  ```bash
+  git worktree remove <worktree-path>   # 예: .claude/worktrees/<name>
+  git branch -d <branch>                # 머지 완료된 로컬 브랜치 정리 (선택)
+  ```
+- 단일 디렉토리에서 작업했다면 이 단계는 건너뛴다.
+
 ## 금지
 - 사용자 승인 없이 충돌을 해결하지 않는다.
 - 실패한 테스트·린트·빌드 상태로 push 하지 않는다.

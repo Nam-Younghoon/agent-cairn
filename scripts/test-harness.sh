@@ -65,6 +65,8 @@ required=(
   "templates/__docs/plan.example.json"
   "templates/github/PULL_REQUEST_TEMPLATE.md"
   "templates/gitignore.partial"
+  "templates/worktreeinclude.partial"
+  "scripts/worktree.sh"
   "templates/env.example"
   "scripts/install.sh"
   "scripts/_merge_claude.py"
@@ -882,6 +884,168 @@ if grep -qE '^description = ".*(PR|리뷰)' "$pr_toml" 2>/dev/null; then
 else
   fail "gemini-only: pr-reviewer.toml description 에 PR/리뷰 키워드 누락"
 fi
+
+echo
+echo "===== 4j) /discuss 워크트리-세이프 브랜치 생성 (3 CLI 소스) ====="
+# ADR-016/017: base 를 로컬 체크아웃하지 않고 origin/<base> 에서 곧장 분기해야
+# 워크트리 환경에서 dual-checkout fatal 이 발생하지 않는다. 세 CLI 소스 동기화 검증.
+discuss_sources=(
+  ".claude/commands/discuss.md"
+  ".codex/prompts/discuss.md"
+  ".gemini/commands/discuss.toml"
+)
+for df in "${discuss_sources[@]}"; do
+  if grep -qF 'git switch -c' "$df" && grep -qE 'origin/<base>|origin/dev' "$df"; then
+    ok "discuss-safe: $df origin/<base> 기반 분기 포함"
+  else
+    fail "discuss-safe: $df origin/<base> 기반 분기 누락"
+  fi
+  if grep -qF 'git pull --ff-only origin dev' "$df"; then
+    fail "discuss-safe: $df 에 base 로컬 체크아웃(git pull --ff-only origin dev) 잔존"
+  else
+    ok "discuss-safe: $df base 로컬 체크아웃 제거 확인"
+  fi
+done
+
+echo
+echo "===== 4k) /ship 머지 후 워크트리 정리 안내 (3 CLI 소스) ====="
+ship_sources=(
+  ".claude/commands/ship.md"
+  ".codex/prompts/ship.md"
+  ".gemini/commands/ship.toml"
+)
+for sf in "${ship_sources[@]}"; do
+  if grep -qF 'git worktree remove' "$sf"; then
+    ok "ship-cleanup: $sf 워크트리 정리(git worktree remove) 안내 포함"
+  else
+    fail "ship-cleanup: $sf 워크트리 정리 안내 누락"
+  fi
+done
+
+echo
+echo "===== 4l) 워크트리 진입 자산 템플릿 + gitignore 워크트리 블록 ====="
+assert_file_exists "worktree-asset: worktreeinclude.partial" "templates/worktreeinclude.partial"
+# worktreeinclude.partial 은 새 워크트리로 가져올 gitignore 파일(.env 등) 목록을 담는다
+if grep -qE '^\.env' "templates/worktreeinclude.partial" 2>/dev/null; then
+  ok "worktree-asset: worktreeinclude.partial 에 .env 항목 포함"
+else
+  fail "worktree-asset: worktreeinclude.partial 에 .env 항목 누락"
+fi
+# 두 gitignore(레포 자체용 + 배포 템플릿) 모두 워크트리 디렉토리 패턴 포함
+for gi in ".gitignore" "templates/gitignore.partial"; do
+  for pat in ".claude/worktrees/" ".worktrees/"; do
+    if grep -qF "$pat" "$gi" 2>/dev/null; then
+      ok "worktree-asset: $gi 에 '$pat' 포함"
+    else
+      fail "worktree-asset: $gi 에 '$pat' 누락"
+    fi
+  done
+done
+
+echo
+echo "===== 4m) scripts/worktree.sh 헬퍼 (new|list|clean) ====="
+WT_SCRIPT="$HARNESS_DIR/scripts/worktree.sh"
+if [[ -f "$WT_SCRIPT" ]] && bash -n "$WT_SCRIPT" 2>/dev/null; then
+  ok "worktree.sh: 존재 + bash -n 문법 통과"
+  # 격리된 임시 git 저장소에서 new/list/clean 동작 검증
+  WT_REPO="/tmp/ht-st-$TS-wt-repo"
+  rm -rf "$WT_REPO"; mkdir -p "$WT_REPO"
+  (
+    cd "$WT_REPO"
+    git init -q -b main
+    git config user.email t@example.com; git config user.name tester
+    printf 'SECRET_TOKEN=topsecret\n' > .env
+    printf '.env\n' > .worktreeinclude
+    printf 'root\n' > README.md
+    git add README.md .worktreeinclude
+    git commit -qm init
+  )
+  if new_out="$(cd "$WT_REPO" && bash "$WT_SCRIPT" new mytask 2>&1)"; then
+    ok "worktree.sh new mytask 성공"
+  else
+    fail "worktree.sh new mytask 실패: $new_out"
+  fi
+  assert_file_exists "worktree.sh: .worktrees/mytask 체크아웃" "$WT_REPO/.worktrees/mytask/README.md"
+  assert_file_exists "worktree.sh: .worktreeinclude 의 .env 승계 복사" "$WT_REPO/.worktrees/mytask/.env"
+  if grep -q "topsecret" <<< "$new_out"; then
+    fail "worktree.sh: 시크릿 값이 stdout 로그에 노출됨"
+  else
+    ok "worktree.sh: 시크릿 값 로그 비노출"
+  fi
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" list 2>&1) | grep -q "mytask"; then
+    ok "worktree.sh list 에 mytask 표시"
+  else
+    fail "worktree.sh list 에 mytask 누락"
+  fi
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" clean mytask >/dev/null 2>&1); then
+    ok "worktree.sh clean mytask 성공"
+  else
+    fail "worktree.sh clean mytask 실패"
+  fi
+  assert_file_missing "worktree.sh: clean 후 .worktrees/mytask 제거" "$WT_REPO/.worktrees/mytask"
+  # 부정 케이스 회귀 보호: 트래버설/no-arg/중복 가드
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" new "../evil" main) >/dev/null 2>&1; then
+    fail "worktree.sh: 트래버설 task 이름이 차단되지 않음"
+  else
+    ok "worktree.sh: 트래버설 task 이름 차단"
+  fi
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" new) >/dev/null 2>&1; then
+    fail "worktree.sh new (인자 없음) 이 오류 없이 통과됨"
+  else
+    ok "worktree.sh new 인자 없음 → 오류 정상 반환"
+  fi
+  (cd "$WT_REPO" && bash "$WT_SCRIPT" new dup main >/dev/null 2>&1)
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" new dup main) >/dev/null 2>&1; then
+    fail "worktree.sh: 중복 워크트리 생성이 차단되지 않음"
+  else
+    ok "worktree.sh: 중복 워크트리 생성 차단"
+  fi
+  rm -rf "$WT_REPO"
+else
+  fail "worktree.sh: 미생성 또는 문법 오류"
+fi
+
+echo
+echo "===== 4n) install.sh --with-worktree 옵트인 배포 ====="
+# (A) --with-worktree 시 .worktreeinclude + scripts/worktree.sh 배포
+WT_OPT_DIR="/tmp/ht-st-$TS-wt-opt"
+run_scenario "express" "$WT_OPT_DIR" "single(express) --with-worktree" "--with-worktree"
+assert_file_exists "with-worktree: .worktreeinclude"       "$WT_OPT_DIR/.worktreeinclude"
+assert_file_exists "with-worktree: scripts/worktree.sh"    "$WT_OPT_DIR/scripts/worktree.sh"
+if grep -qE '^\.env' "$WT_OPT_DIR/.worktreeinclude" 2>/dev/null; then
+  ok "with-worktree: 배포된 .worktreeinclude 에 .env 항목 포함"
+else
+  fail "with-worktree: 배포된 .worktreeinclude 에 .env 항목 누락"
+fi
+# (B) 플래그 없으면 미배포 (4) 에서 만든 single 디렉토리 재사용)
+assert_file_missing "no-worktree: .worktreeinclude 부재"    "/tmp/ht-st-$TS-single/.worktreeinclude"
+assert_file_missing "no-worktree: scripts/worktree.sh 부재" "/tmp/ht-st-$TS-single/scripts/worktree.sh"
+# (C) gitignore 워크트리 블록은 항상 배포 (ADR-019: 동작 호환이라 무해)
+if grep -qF ".worktrees/" "$WT_OPT_DIR/.gitignore" 2>/dev/null \
+   && grep -qF ".worktrees/" "/tmp/ht-st-$TS-single/.gitignore" 2>/dev/null; then
+  ok "gitignore 워크트리 블록 항상 배포 (--with-worktree 유무 무관)"
+else
+  fail "gitignore 워크트리 블록 배포 누락"
+fi
+# (D) --help 에 --with-worktree 언급
+if bash scripts/install.sh --help 2>&1 | grep -q -- "--with-worktree"; then
+  ok "--help 에 --with-worktree 설명 포함"
+else
+  fail "--help 에 --with-worktree 설명 누락"
+fi
+
+echo
+echo "===== 4o) 공용 본문 워크트리 절차 3-way 배포 ====="
+# §2.7 워크트리 절차가 세 CLI 본문(CLAUDE/AGENTS/GEMINI)에 동일하게 들어가야 함.
+# TRIPLE_DIR 은 4i(E) 에서 --cli=claude,codex,gemini 로 생성됨.
+WT_DOC_MARK="워크트리 — 멀티 세션 격리"
+for tgt in CLAUDE AGENTS GEMINI; do
+  if grep -qF "$WT_DOC_MARK" "$TRIPLE_DIR/$tgt.md" 2>/dev/null; then
+    ok "worktree-doc: $tgt.md 에 워크트리 절차 포함"
+  else
+    fail "worktree-doc: $tgt.md 에 워크트리 절차 누락"
+  fi
+done
 
 echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="

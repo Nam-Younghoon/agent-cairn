@@ -4,6 +4,10 @@
 # 브랜치 전용 작업 문서 (PRD, ARCHITECTURE, ADR, UI_GUIDE)
 __docs/
 
+# git worktree (멀티 세션 격리) — 레포 내부에 생성되므로 추적 제외 (ADR-016/018)
+.claude/worktrees/
+.worktrees/
+
 # 환경변수
 .env
 .env.local

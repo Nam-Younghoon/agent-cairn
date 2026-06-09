@@ -53,11 +53,10 @@ feat | fix | chore | refactor | design | docs | test
 
 사용자 승인 후:
 1. `git fetch origin`
-2. `git switch dev && git pull --ff-only origin dev`
-3. `git switch -c <type>/<kebab-요약>`
-4. 생성된 브랜치명을 사용자에게 출력.
+2. `git switch -c <type>/<kebab-요약> origin/<base>` — base(`dev`/`main`)를 **로컬 체크아웃하지 않고** 원격 최신 커밋에서 곧장 새 브랜치를 만든다. 메인 워크트리가 base 를 잡고 있어도 `fatal: '<base>' is already checked out` (dual-checkout) 이 발생하지 않는다(ADR-016/017).
+3. 생성된 브랜치명을 사용자에게 출력.
 
-> `dev` 브랜치가 없으면 사용자에게 기준 브랜치를 물어본다.
+> 원격 `dev` 가 없으면 사용자에게 기준 브랜치(`<base>`)를 물어본다.
 
 ## 4단계. (필요 시) 병렬 탐색
 
@@ -96,7 +95,7 @@ ARCHITECTURE.md 또는 PRD 의 "기존 구현" 항목을 채우기 위해 정보
 ## 금지
 - 사용자 승인 전에 실제 코드 수정을 시작하지 않는다.
 - `__docs/` 를 `.gitignore` 에 포함하지 않은 채로 파일을 커밋하지 않는다.
-- 브랜치 생성 전에 `dev` 의 최신화 없이 분기하지 않는다.
+- 브랜치 생성 시 `git fetch` 로 원격 최신화 없이 분기하지 않는다 (새 브랜치는 항상 `origin/<base>` 기반). base 를 로컬로 `git switch` 하지 않는다 — 워크트리에서 dual-checkout `fatal` 을 유발한다.
 - `PRD.md` 의 완료 기준을 모호한 문장(예: "잘 되도록 한다") 으로 남기지 않는다.
 
 ---
