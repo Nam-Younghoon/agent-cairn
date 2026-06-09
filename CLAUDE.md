@@ -68,7 +68,8 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 - **세션 띄우기 (작업 하나만이면 생략 가능 — 단일 디렉토리에서도 동작 호환)**
   - **Claude Code**: `claude --worktree <name>` — `.claude/worktrees/<name>/` 에 워크트리 생성, `.worktreeinclude` 파일 자동 복사, 종료 시 자동 정리.
-  - **Codex / Gemini**: `scripts/worktree.sh new <task> [base]` → `.worktrees/<task>` 생성 + `.worktreeinclude` 승계 복사. 그 안에서 세션을 띄운다. (`--with-worktree` 로 설치된 프로젝트에서 사용)
+  - **Codex / Gemini**: `scripts/worktree.sh new <task> [base]` → `.worktrees/<task>` 생성 + `.worktreeinclude` 승계 복사. 그 안에서 세션을 띄운다.
+    > 이 헬퍼는 `install.sh --with-worktree` 로 설치한 프로젝트에만 존재한다. 없으면 `install.sh --with-worktree` 를 다시 실행하거나 `git worktree add` 를 직접 사용한다.
 - **진입 후**: 평소처럼 `/discuss → /plan → /execute → /ship`. `/discuss` 는 `git switch -c <branch> origin/<base>` 로 base 를 로컬 체크아웃하지 않아 워크트리에서도 dual-checkout `fatal` 이 없다(ADR-017).
 - **`/new` 재사용**: 한 워크트리에서 작업을 마치면(`/ship` 또는 커밋해 clean 상태로 둔 뒤) `/new` 로 대화만 비우고 다음 작업을 맡겨도 된다. `/new` 는 git 상태를 건드리지 않으므로 **다음 작업 시작 전 워크트리가 clean 한지 확인**한다.
 - **정리**: PR 머지 후 `/ship` 7단계 안내대로 워크트리를 제거한다(Claude 네이티브 자동 / `scripts/worktree.sh clean <task>`).

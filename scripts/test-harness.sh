@@ -983,6 +983,23 @@ if [[ -f "$WT_SCRIPT" ]] && bash -n "$WT_SCRIPT" 2>/dev/null; then
     fail "worktree.sh clean mytask 실패"
   fi
   assert_file_missing "worktree.sh: clean 후 .worktrees/mytask 제거" "$WT_REPO/.worktrees/mytask"
+  # 부정 케이스 회귀 보호: 트래버설/no-arg/중복 가드
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" new "../evil" main) >/dev/null 2>&1; then
+    fail "worktree.sh: 트래버설 task 이름이 차단되지 않음"
+  else
+    ok "worktree.sh: 트래버설 task 이름 차단"
+  fi
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" new) >/dev/null 2>&1; then
+    fail "worktree.sh new (인자 없음) 이 오류 없이 통과됨"
+  else
+    ok "worktree.sh new 인자 없음 → 오류 정상 반환"
+  fi
+  (cd "$WT_REPO" && bash "$WT_SCRIPT" new dup main >/dev/null 2>&1)
+  if (cd "$WT_REPO" && bash "$WT_SCRIPT" new dup main) >/dev/null 2>&1; then
+    fail "worktree.sh: 중복 워크트리 생성이 차단되지 않음"
+  else
+    ok "worktree.sh: 중복 워크트리 생성 차단"
+  fi
   rm -rf "$WT_REPO"
 else
   fail "worktree.sh: 미생성 또는 문법 오류"

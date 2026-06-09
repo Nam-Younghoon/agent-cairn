@@ -60,6 +60,11 @@ copy_includes() {
     path="${path#"${path%%[![:space:]]*}"}"    # 앞 공백 트림
     path="${path%"${path##*[![:space:]]}"}"    # 뒤 공백 트림
     [[ -z "$path" ]] && continue
+    # REPO_ROOT 밖으로 새는 항목 거부 (방어 심층 — .worktreeinclude 는 git-tracked 이나 안전망)
+    if [[ "$path" == /* || "$path" == *..* ]]; then
+      echo "  경고: 위험한 항목 건너뜀(절대경로/상위참조): $path" >&2
+      continue
+    fi
     # glob 패턴 확장 (매칭 없으면 건너뜀). 항목은 공백 없는 경로/글롭 전제.
     # shellcheck disable=SC2086
     for src in $path; do
@@ -71,11 +76,11 @@ copy_includes() {
   done < "$INCLUDE_FILE"
 }
 
-# task 이름이 .worktrees/ 밖으로 새지 않도록 검증 (경로 구분자/상위 참조 금지)
+# task 이름이 .worktrees/ 밖으로 새지 않도록 검증 (영문·숫자·하이픈·언더스코어만 허용)
 validate_task() {
   local task="$1"
-  if [[ "$task" == */* || "$task" == *..* ]]; then
-    echo "오류: task 이름에 '/' 나 '..' 를 쓸 수 없습니다: '$task'" >&2
+  if [[ ! "$task" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "오류: task 이름은 영문·숫자·하이픈(-)·언더스코어(_)만 허용합니다: '$task'" >&2
     exit 1
   fi
 }
@@ -149,6 +154,7 @@ cmd_clean() {
   fi
   # 워크트리는 .worktreeinclude 로 승계한 gitignore 파일(.env 등 untracked)을 담으므로
   # --force 없이는 git 이 제거를 거부한다. 의도된 동작이므로 강제 제거한다.
+  echo "주의: --force 제거 — '$path' 안의 untracked 파일(승계된 .env 등)도 함께 삭제됩니다."
   git worktree remove --force "$path"
   echo "워크트리 제거: $path"
 }
