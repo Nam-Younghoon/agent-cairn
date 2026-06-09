@@ -1018,6 +1018,19 @@ else
 fi
 
 echo
+echo "===== 4o) 공용 본문 워크트리 절차 3-way 배포 ====="
+# §2.7 워크트리 절차가 세 CLI 본문(CLAUDE/AGENTS/GEMINI)에 동일하게 들어가야 함.
+# TRIPLE_DIR 은 4i(E) 에서 --cli=claude,codex,gemini 로 생성됨.
+WT_DOC_MARK="워크트리 — 멀티 세션 격리"
+for tgt in CLAUDE AGENTS GEMINI; do
+  if grep -qF "$WT_DOC_MARK" "$TRIPLE_DIR/$tgt.md" 2>/dev/null; then
+    ok "worktree-doc: $tgt.md 에 워크트리 절차 포함"
+  else
+    fail "worktree-doc: $tgt.md 에 워크트리 절차 누락"
+  fi
+done
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"

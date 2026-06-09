@@ -63,6 +63,17 @@ feat: 사용자 프로필 이미지 업로드 추가
   - 좋음: `userCount`, `processUserSignup`, `orderHistory`
 - 파일명: Node/Web은 kebab-case(컴포넌트는 PascalCase), Flutter는 snake_case.
 
+### 2.7 워크트리 — 멀티 세션 격리
+한 레포에서 여러 AI 세션을 **동시에** 굴려 병렬 작업할 때는, 세션마다 별도 git worktree(독립 HEAD/작업 트리)에서 시작한다. 단일 디렉토리에서 여러 세션이 같은 HEAD 를 공유하면 `/discuss` 의 브랜치 전환이 서로 간섭하기 때문이다(ADR-016). 워크트리는 **세션 실행 시점에** 만든다 — 커맨드는 이미 격리된 곳에서 도는 것만 책임진다.
+
+- **세션 띄우기 (작업 하나만이면 생략 가능 — 단일 디렉토리에서도 동작 호환)**
+  - **Claude Code**: `claude --worktree <name>` — `.claude/worktrees/<name>/` 에 워크트리 생성, `.worktreeinclude` 파일 자동 복사, 종료 시 자동 정리.
+  - **Codex / Gemini**: `scripts/worktree.sh new <task> [base]` → `.worktrees/<task>` 생성 + `.worktreeinclude` 승계 복사. 그 안에서 세션을 띄운다. (`--with-worktree` 로 설치된 프로젝트에서 사용)
+- **진입 후**: 평소처럼 `/discuss → /plan → /execute → /ship`. `/discuss` 는 `git switch -c <branch> origin/<base>` 로 base 를 로컬 체크아웃하지 않아 워크트리에서도 dual-checkout `fatal` 이 없다(ADR-017).
+- **`/new` 재사용**: 한 워크트리에서 작업을 마치면(`/ship` 또는 커밋해 clean 상태로 둔 뒤) `/new` 로 대화만 비우고 다음 작업을 맡겨도 된다. `/new` 는 git 상태를 건드리지 않으므로 **다음 작업 시작 전 워크트리가 clean 한지 확인**한다.
+- **정리**: PR 머지 후 `/ship` 7단계 안내대로 워크트리를 제거한다(Claude 네이티브 자동 / `scripts/worktree.sh clean <task>`).
+- `.claude/worktrees/`·`.worktrees/` 는 `.gitignore` 에 포함되어 추적되지 않는다.
+
 ---
 
 ## 3. 업무 프로세스
