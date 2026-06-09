@@ -184,4 +184,5 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 ### 공통
 - `templates/` — 프로젝트 유형별 시작 템플릿 (Claude `CLAUDE.md` 와 Codex `AGENTS.md` 공용 본문)
-- `scripts/install.sh` — 신규 프로젝트에 하네스 주입. `--cli=<list>` 로 배포 대상 CLI 선택 (기본값 `claude`, `claude,codex` 혼용 가능)
+- `scripts/install.sh` — 신규 프로젝트에 하네스 주입. `--cli=<list>` 로 배포 대상 CLI 선택 (기본값 `claude`, `claude,codex` 혼용 가능). `--with-worktree` 로 워크트리 격리 자산 옵트인 배포.
+- `scripts/worktree.sh`, `templates/worktreeinclude.partial` — git worktree 멀티 세션 격리(§2.7). Claude 네이티브 `--worktree` / Codex·Gemini 헬퍼 `new|list|clean` (ADR-016~019)

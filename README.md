@@ -20,8 +20,9 @@
 | 문서 템플릿 | `templates/__docs/` | PRD / ARCHITECTURE / ADR / UI_GUIDE / plan.schema.json |
 | 린트/포매터 | `templates/node/`, `templates/nestjs/eslint.config.mjs`, `templates/flutter/analysis_options.yaml`, `templates/springboot{,-kotlin}/spotless.gradle.kts` | ESLint(flat) + Prettier, NestJS 전용 ESLint, analysis_options, Spotless(옵트인) |
 | PR 템플릿 | `templates/github/PULL_REQUEST_TEMPLATE.md` | 하네스 체크리스트 포함. **CLI 무관** (Claude/Codex/Gemini 모두 공용) |
+| 워크트리 격리 | `scripts/worktree.sh`, `templates/worktreeinclude.partial` | git worktree 멀티 세션 격리(옵트인 `--with-worktree`). Claude 는 네이티브 `--worktree`, Codex/Gemini 는 헬퍼 `new\|list\|clean` (ADR-016~019) |
 | 설치 스크립트 | `scripts/install.sh` | `--cli` 로 Claude/Codex/Gemini 선택(혼용 가능), 단일·다중·모노레포 스택, 마커 기반 스마트 병합 |
-| 셀프 테스트 | `scripts/test-harness.sh`, `tests/` | pytest + 설치 시나리오 회귀 (현재 PASS=269) |
+| 셀프 테스트 | `scripts/test-harness.sh`, `tests/` | pytest + 설치 시나리오 회귀 (현재 PASS=310) |
 
 ## 슬래시 커맨드
 
@@ -88,6 +89,9 @@ git clone <이 레포> /tmp/agent-cairn
   --stack='express:apps/api,nextjs:apps/web,flutter:apps/mobile,nestjs:apps/api-nest,springboot-kotlin:apps/api-kotlin' \
   --with-spotless \
   --target=/path/to/monorepo
+
+# git worktree 멀티 세션 격리 자산 옵트인 (Codex/Gemini 헬퍼 + .worktreeinclude)
+/tmp/agent-cairn/scripts/install.sh --stack=express --with-worktree --target=/path/to/project
 ```
 
 옵션:
@@ -96,6 +100,7 @@ git clone <이 레포> /tmp/agent-cairn
 - `--target=<경로>` (기본: 현재 디렉토리).
 - `--force`: 기존 파일 덮어쓰기 허용 (CLAUDE.md/AGENTS.md 는 마커 구간만 덮어써도 되므로 대부분 불필요).
 - `--with-spotless`: SpringBoot(Java/Kotlin) 스택에 Spotless 포매터 스니펫과 `.editorconfig` 를 배포. 기본은 포매터 없음. 리포 단위 전역 on/off.
+- `--with-worktree`: git worktree 멀티 세션 격리 자산(`.worktreeinclude` + `scripts/worktree.sh`)을 배포. 기본은 미배포. 같은 레포에서 세션을 동시에 여러 개 굴려 병렬 작업할 때, Claude 는 `claude --worktree <name>`, Codex/Gemini 는 `scripts/worktree.sh new <task>` 로 세션마다 독립 워크트리를 만든다 (ADR-016~019).
 
 설치 후 자동으로 수행되는 것 (`--cli` 값에 따라 분기):
 1. **공통**: `.gitignore` 에 하네스 블록 추가 (`__docs/`, `.env`, `.codex/sessions/` 등), `.env.example` 배포, `.github/PULL_REQUEST_TEMPLATE.md` 배포, 스택별 린트/포매터 설정.
