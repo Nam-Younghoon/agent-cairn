@@ -884,6 +884,28 @@ else
 fi
 
 echo
+echo "===== 4j) /discuss 워크트리-세이프 브랜치 생성 (3 CLI 소스) ====="
+# ADR-016/017: base 를 로컬 체크아웃하지 않고 origin/<base> 에서 곧장 분기해야
+# 워크트리 환경에서 dual-checkout fatal 이 발생하지 않는다. 세 CLI 소스 동기화 검증.
+discuss_sources=(
+  ".claude/commands/discuss.md"
+  ".codex/prompts/discuss.md"
+  ".gemini/commands/discuss.toml"
+)
+for df in "${discuss_sources[@]}"; do
+  if grep -qF 'git switch -c' "$df" && grep -qE 'origin/<base>|origin/dev' "$df"; then
+    ok "discuss-safe: $df origin/<base> 기반 분기 포함"
+  else
+    fail "discuss-safe: $df origin/<base> 기반 분기 누락"
+  fi
+  if grep -qF 'git pull --ff-only origin dev' "$df"; then
+    fail "discuss-safe: $df 에 base 로컬 체크아웃(git pull --ff-only origin dev) 잔존"
+  else
+    ok "discuss-safe: $df base 로컬 체크아웃 제거 확인"
+  fi
+done
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"
