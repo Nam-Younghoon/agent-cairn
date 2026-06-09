@@ -906,6 +906,21 @@ for df in "${discuss_sources[@]}"; do
 done
 
 echo
+echo "===== 4k) /ship 머지 후 워크트리 정리 안내 (3 CLI 소스) ====="
+ship_sources=(
+  ".claude/commands/ship.md"
+  ".codex/prompts/ship.md"
+  ".gemini/commands/ship.toml"
+)
+for sf in "${ship_sources[@]}"; do
+  if grep -qF 'git worktree remove' "$sf"; then
+    ok "ship-cleanup: $sf 워크트리 정리(git worktree remove) 안내 포함"
+  else
+    fail "ship-cleanup: $sf 워크트리 정리 안내 누락"
+  fi
+done
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"
