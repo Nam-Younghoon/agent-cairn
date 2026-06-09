@@ -65,6 +65,7 @@ required=(
   "templates/__docs/plan.example.json"
   "templates/github/PULL_REQUEST_TEMPLATE.md"
   "templates/gitignore.partial"
+  "templates/worktreeinclude.partial"
   "templates/env.example"
   "scripts/install.sh"
   "scripts/_merge_claude.py"
@@ -918,6 +919,26 @@ for sf in "${ship_sources[@]}"; do
   else
     fail "ship-cleanup: $sf 워크트리 정리 안내 누락"
   fi
+done
+
+echo
+echo "===== 4l) 워크트리 진입 자산 템플릿 + gitignore 워크트리 블록 ====="
+assert_file_exists "worktree-asset: worktreeinclude.partial" "templates/worktreeinclude.partial"
+# worktreeinclude.partial 은 새 워크트리로 가져올 gitignore 파일(.env 등) 목록을 담는다
+if grep -qE '^\.env' "templates/worktreeinclude.partial" 2>/dev/null; then
+  ok "worktree-asset: worktreeinclude.partial 에 .env 항목 포함"
+else
+  fail "worktree-asset: worktreeinclude.partial 에 .env 항목 누락"
+fi
+# 두 gitignore(레포 자체용 + 배포 템플릿) 모두 워크트리 디렉토리 패턴 포함
+for gi in ".gitignore" "templates/gitignore.partial"; do
+  for pat in ".claude/worktrees/" ".worktrees/"; do
+    if grep -qF "$pat" "$gi" 2>/dev/null; then
+      ok "worktree-asset: $gi 에 '$pat' 포함"
+    else
+      fail "worktree-asset: $gi 에 '$pat' 누락"
+    fi
+  done
 done
 
 echo
