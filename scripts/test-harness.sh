@@ -989,6 +989,35 @@ else
 fi
 
 echo
+echo "===== 4n) install.sh --with-worktree 옵트인 배포 ====="
+# (A) --with-worktree 시 .worktreeinclude + scripts/worktree.sh 배포
+WT_OPT_DIR="/tmp/ht-st-$TS-wt-opt"
+run_scenario "express" "$WT_OPT_DIR" "single(express) --with-worktree" "--with-worktree"
+assert_file_exists "with-worktree: .worktreeinclude"       "$WT_OPT_DIR/.worktreeinclude"
+assert_file_exists "with-worktree: scripts/worktree.sh"    "$WT_OPT_DIR/scripts/worktree.sh"
+if grep -qE '^\.env' "$WT_OPT_DIR/.worktreeinclude" 2>/dev/null; then
+  ok "with-worktree: 배포된 .worktreeinclude 에 .env 항목 포함"
+else
+  fail "with-worktree: 배포된 .worktreeinclude 에 .env 항목 누락"
+fi
+# (B) 플래그 없으면 미배포 (4) 에서 만든 single 디렉토리 재사용)
+assert_file_missing "no-worktree: .worktreeinclude 부재"    "/tmp/ht-st-$TS-single/.worktreeinclude"
+assert_file_missing "no-worktree: scripts/worktree.sh 부재" "/tmp/ht-st-$TS-single/scripts/worktree.sh"
+# (C) gitignore 워크트리 블록은 항상 배포 (ADR-019: 동작 호환이라 무해)
+if grep -qF ".worktrees/" "$WT_OPT_DIR/.gitignore" 2>/dev/null \
+   && grep -qF ".worktrees/" "/tmp/ht-st-$TS-single/.gitignore" 2>/dev/null; then
+  ok "gitignore 워크트리 블록 항상 배포 (--with-worktree 유무 무관)"
+else
+  fail "gitignore 워크트리 블록 배포 누락"
+fi
+# (D) --help 에 --with-worktree 언급
+if bash scripts/install.sh --help 2>&1 | grep -q -- "--with-worktree"; then
+  ok "--help 에 --with-worktree 설명 포함"
+else
+  fail "--help 에 --with-worktree 설명 누락"
+fi
+
+echo
 echo "===== 5) 스마트 병합 — 사용자 커스텀 보존 ====="
 TARGET="/tmp/ht-st-$TS-merge"
 mkdir -p "$TARGET"

@@ -2,7 +2,7 @@
 # agent-cairn 설치 스크립트
 #
 # 사용법:
-#   ./scripts/install.sh --stack=<stack-spec> [--target=<repo-root>] [--force] [--with-spotless]
+#   ./scripts/install.sh --stack=<stack-spec> [--target=<repo-root>] [--force] [--with-spotless] [--with-worktree]
 #
 # stack-spec 형식:
 #   1) 단일 스택            : --stack=express
@@ -16,6 +16,8 @@
 #                     기본값: claude. 예: --cli=gemini 또는 --cli=claude,codex,gemini
 #   --with-spotless : SpringBoot(Java/Kotlin) 스택에 Spotless 포매터 스니펫과
 #                     .editorconfig 를 배포한다. 기본은 포매터 없음.
+#   --with-worktree : git worktree 멀티 세션 격리 자산(.worktreeinclude +
+#                     scripts/worktree.sh)을 배포한다. 기본은 미배포(ADR-019).
 #
 # 동작:
 #   - --cli 에 명시된 CLI 어댑터 자산만 --target (리포지토리 루트) 에 설치한다.
@@ -32,6 +34,7 @@ STACK_SPEC=""
 TARGET="$(pwd)"
 FORCE=0
 WITH_SPOTLESS=0
+WITH_WORKTREE=0
 CLI_SPEC="claude"  # 기본값. 허용값: claude | codex | gemini (콤마 결합 가능)
 
 for arg in "$@"; do
@@ -41,6 +44,7 @@ for arg in "$@"; do
     --cli=*)         CLI_SPEC="${arg#*=}" ;;
     --force)         FORCE=1 ;;
     --with-spotless) WITH_SPOTLESS=1 ;;
+    --with-worktree) WITH_WORKTREE=1 ;;
     -h|--help)
       # 헤더 주석만 출력: set -euo 라인을 만나면 종료
       sed -n '/^set -euo/q;p' "$0"
@@ -98,6 +102,7 @@ echo "[install] target=$TARGET"
 echo "[install] stack-spec=$STACK_SPEC"
 echo "[install] cli=${CLIS[*]}"
 echo "[install] with-spotless=$([[ $WITH_SPOTLESS -eq 1 ]] && echo on || echo off)"
+echo "[install] with-worktree=$([[ $WITH_WORKTREE -eq 1 ]] && echo on || echo off)"
 
 # ---- 유틸 ------------------------------------------------------------------
 
@@ -173,6 +178,15 @@ merge_claude() {
   python3 "$HARNESS_DIR/scripts/_merge_claude.py" "$target_file" "$source_file" $FORCE_FLAG
 }
 
+install_worktree_assets() {
+  # git worktree 멀티 세션 격리 자산. --with-worktree 가 켜진 경우만 호출.
+  # worktreeinclude.partial → 대상 루트 .worktreeinclude, 헬퍼 스크립트 복사.
+  local dst_dir="$1"
+  copy_file "$HARNESS_DIR/templates/worktreeinclude.partial" "$dst_dir/.worktreeinclude"
+  copy_file "$HARNESS_DIR/scripts/worktree.sh"               "$dst_dir/scripts/worktree.sh"
+  chmod +x "$dst_dir/scripts/worktree.sh" 2>/dev/null || true
+}
+
 # ---- 1) 루트 공통 자산 (CLI 무관: .gitignore / .env.example / PR 템플릿) ----
 
 echo "[install] 루트 공통 자산 배포"
@@ -185,6 +199,12 @@ append_if_missing "$HARNESS_DIR/templates/gitignore.partial" \
 
 if [[ ! -f "$TARGET/.env.example" || $FORCE -eq 1 ]]; then
   copy_file "$HARNESS_DIR/templates/env.example" "$TARGET/.env.example"
+fi
+
+# git worktree 격리 자산 (옵트인) — 루트에만 배포
+if [[ $WITH_WORKTREE -eq 1 ]]; then
+  echo "[install] 워크트리 자산 배포 (.worktreeinclude + scripts/worktree.sh)"
+  install_worktree_assets "$TARGET"
 fi
 
 # ---- 1a) Claude 전용 자산 (.claude/) ---------------------------------------
@@ -452,6 +472,10 @@ if [[ $ANY_SPRING_JAVA -eq 1 || $ANY_SPRING_KOTLIN -eq 1 ]]; then
   if [[ $WITH_SPOTLESS -eq 1 ]]; then
     echo "              Spotless 옵트인 활성화 — 게이트에 spotlessCheck 를 포함하세요."
   fi
+fi
+if [[ $WITH_WORKTREE -eq 1 ]]; then
+  echo "  Worktree: 멀티 세션 격리 — Codex/Gemini 는 scripts/worktree.sh new <task>,"
+  echo "            Claude 는 claude --worktree <name> 로 세션을 띄우세요."
 fi
 echo
 echo "훅 테스트: python3 -m pytest (하네스 레포에서)"
