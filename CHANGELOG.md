@@ -34,6 +34,7 @@
 - `scripts/test-harness.sh`: 신규 스택 3종의 필수 파일 체크, 단일/--with-spotless on/off/모노레포 혼합 시나리오, 잘못된 식별자(`spring-boot`) 거부 검증 추가. `run_scenario` 가 extra_args 를 받도록 확장.
 
 ### 변경
+- `templates/flutter/CLAUDE.md` 아키텍처 개편 — 이름형 layer-first(`core/`, `config/`, `data/`, `domain/`, `features/`)를 번호형 레이어드 클린 아키텍처(`00_config`~`04_infra`, 단방향 의존 `01→02→03←04`, 배선은 `00_config/di` 에만)로 재작성해 의존 방향을 폴더 구조로 강제. 상태관리는 단일 스택으로 고정하지 않고 Riverpod(권장)/GetX/BLoC 개방(§2 에 라이브러리별 컨트롤러·DI 배치 가이드), 에러 처리·네트워크도 선택지로 유지. `analysis_options.yaml` 은 기술 비의존이라 변경 없음.
 - `install.sh` 헤더 동작 설명을 CLI 별 조건부 배포로 정정 (`.claude/` 와 `CLAUDE.md` 는 `--cli` 에 `claude` 가 포함된 경우에만 배포).
 - `install.sh --help` 출력을 고정 라인 수(`'1,30p'`) 대신 `set -euo` 센티넬 기반으로 변경 (헤더 주석 분량 변화에 자동 적응).
 - `install.sh` 사용법 헤더와 마무리 안내에 신규 스택·`--with-spotless` 설명 반영.
