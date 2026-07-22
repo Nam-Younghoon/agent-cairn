@@ -11,6 +11,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 - `<stepId>`: 특정 스텝 id 수행
 - `all`: 차단 상태가 될 때까지 연속 수행
 
+> **모델 선택 가이드 (`all` 장기 자율 실행)**
+> `all` 은 여러 스텝을 연속으로 자율 실행하므로, 어렵고 긴 작업이라면 실행 **직전에 세션 모델을 Fable 로 전환**하는 것을 권장한다: `/model fable` → `/execute all` → 완료 후 `/model opus` 로 복귀.
+> Fable 은 장기 자율 실행(long-horizon agentic)에 강점이 있으나 최상위 티어라 비용이 크므로, `next`·`<stepId>` 같은 단발 실행에는 세션 기본 모델(예: Opus)을 그대로 쓴다.
+> 커맨드 프론트매터의 `model:` 은 인자별 조건 분기가 불가능하고 override 가 해당 턴에만 적용되어 다중 스텝 실행 내내 유지되지 않으므로, 이 전환은 **세션 모델 변경(`/model`)** 으로만 안정적으로 동작한다.
+
 ## 선조건 확인
 1. `__docs/plan.json` 존재 확인. 없으면 `/plan` 을 먼저 돌리도록 안내.
 2. `status` 가 `planning` 이면 `in_progress` 로 전환하고 그대로 진행.
