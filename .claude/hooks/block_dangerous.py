@@ -41,7 +41,15 @@ _RM_RECURSIVE_FORCE = re.compile(
     _FLAGS,
 )
 
+# 셸 제어 연산자 기준 명령 분리자 (`&&`, `||`, `;`, `|`, `&`, 개행).
+# force push 판정에서만 사용한다 — 아래 _is_git_force_push 주석 참조.
+# 인용부호·서브셸은 고려하지 않는 단순 분할이지만, 과분할은 차단 범위를 좁힐 뿐
+# 허용 범위를 넓히지 않으므로(각 조각 안에서 push+force 가 함께여야 차단) 안전한 방향이다.
+_COMMAND_SEPARATOR = re.compile(r"\|\||&&|[;\n|&]")
+
 # git push --force / -f (단, --force-with-lease 는 허용)
+# _GIT_FORCE_FLAG 가 플래그 뒤에 공백 또는 문자열 끝을 요구하므로
+# `--force-with-lease` / `--force-if-includes` 는 매칭되지 않는다.
 _GIT_PUSH = re.compile(r"(?:^|[^a-zA-Z0-9])git\s+push\b", _FLAGS)
 _GIT_FORCE_FLAG = re.compile(r"\s(?:-f|--force)(?:\s|$)", _FLAGS)
 
@@ -100,6 +108,25 @@ _LIQUIBASE_DROP_ALL = re.compile(
 )
 
 
+def _is_git_force_push(command: str) -> bool:
+    """명령 문자열 안에 force push 세그먼트가 있는지 판정.
+
+    명령 문자열 '전체'에서 `git push` 와 force 플래그를 각각 찾으면,
+    서로 다른 명령에 속한 둘이 합쳐져 오탐이 난다. _FLAGS 의 re.IGNORECASE
+    때문에 대문자 `-F` 도 `-f` 로 매칭되어 오탐 범위가 더 넓어진다.
+    실제로 차단됐던 정상 명령:
+      - `git commit -F msg.txt && git push origin main`
+      - `grep -f patterns.txt log.txt && git push origin main`
+      - `rm -f stale.tmp && git push origin main`
+    따라서 셸 제어 연산자로 나눈 '같은 세그먼트 안'에 push 와 force 플래그가
+    모두 있을 때만 차단한다.
+    """
+    for segment in _COMMAND_SEPARATOR.split(command):
+        if _GIT_PUSH.search(segment) and _GIT_FORCE_FLAG.search(segment):
+            return True
+    return False
+
+
 def evaluate(command: str) -> Decision:
     """주어진 Bash 명령 문자열에 대한 허용/차단 판정을 반환."""
     if not command:
@@ -108,7 +135,7 @@ def evaluate(command: str) -> Decision:
     if _RM_RECURSIVE_FORCE.search(command):
         return Decision(False, "rm -rf 계열 명령은 하네스 규정에 의해 금지됩니다.")
 
-    if _GIT_PUSH.search(command) and _GIT_FORCE_FLAG.search(command):
+    if _is_git_force_push(command):
         return Decision(
             False,
             "git force push 는 금지됩니다. 필요한 경우 --force-with-lease 를 사용하세요.",

@@ -53,17 +53,49 @@ def test_allows_non_recursive_rm(command: str) -> None:
     assert evaluate(command).allow
 
 
-def test_blocks_git_push_force() -> None:
-    assert not evaluate("git push --force origin main").allow
-    assert not evaluate("git push -f origin dev").allow
-    # 대소문자 변형
-    assert not evaluate("git push --FORCE origin dev").allow
-    assert not evaluate("git push -F origin dev").allow
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push -f",
+        "git push --force",
+        "git push --force origin main",
+        "git push origin main -f",
+        # 대소문자 변형
+        "git push --FORCE origin dev",
+        "git push -F origin dev",
+        # 같은 세그먼트 안에 push 와 force 플래그가 있으면 연결 명령이어도 차단
+        "git commit -m x && git push -f origin main",
+        "git add . ; git push --force",
+        "git fetch\ngit push -f",
+        "git fetch || git push --force",
+    ],
+)
+def test_blocks_git_push_force(command: str) -> None:
+    decision = evaluate(command)
+    assert not decision.allow
+    assert "force push" in decision.reason
 
 
 def test_allows_git_push_force_with_lease() -> None:
+    assert evaluate("git push --force-with-lease").allow
     assert evaluate("git push --force-with-lease origin dev").allow
     assert evaluate("git push --force-with-lease --force-if-includes origin dev").allow
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push origin main",
+        # 다른 세그먼트의 -f 가 push 와 엮여 오탐하면 안 된다 (실제 차단 사례)
+        "git commit -F msg.txt && git push origin main",
+        "git commit --file=msg.txt && git push origin dev",
+        "grep -f patterns.txt log.txt && git push origin main",
+        "rm -f stale.tmp && git push origin main",
+        "git push origin main\nxargs -f foo",
+    ],
+)
+def test_allows_git_push_without_force(command: str) -> None:
+    assert evaluate(command).allow, command
 
 
 def test_blocks_git_reset_hard() -> None:
