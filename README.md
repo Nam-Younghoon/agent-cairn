@@ -1,6 +1,6 @@
 # agent-cairn
 
-여러 프레임워크를 위한 올인원 개발 하네스. **Claude Code**, **OpenAI Codex CLI**, **Google Gemini CLI** 를 동시 지원하며, 백엔드(Express·NestJS·SpringBoot Java·SpringBoot Kotlin)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다. 세 CLI 에서 `/discuss /plan /execute /ship` 신규 작업 4-커맨드 파이프라인과 `/pr-reviewer` PR 리뷰 트랙이 동일하게 동작합니다 (Codex/Gemini 는 서브에이전트가 없어 **인라인 가이드**로 대체 — ADR-001/013).
+여러 프레임워크를 위한 올인원 개발 하네스. **Claude Code**, **OpenAI Codex CLI**, **Google Gemini CLI** 를 동시 지원하며, 백엔드(Express·NestJS·SpringBoot Java·SpringBoot Kotlin)·웹(Next.js)·모바일(Flutter) 프로젝트에 동일한 컨벤션·프로세스·안전장치·파이프라인을 주입합니다. 세 CLI 에서 `/discuss /plan-steps /execute /ship` 신규 작업 4-커맨드 파이프라인과 `/pr-reviewer` PR 리뷰 트랙이 동일하게 동작합니다 (Codex/Gemini 는 서브에이전트가 없어 **인라인 가이드**로 대체 — ADR-001/013).
 
 ## 핵심 구성
 
@@ -10,10 +10,10 @@
 | 위험 명령 차단 훅 (Bash) | `.claude/hooks/block_dangerous.py` | 위험한 재귀 삭제·`git force push`·`git reset --hard`·`sudo`·`chmod 777`·`curl\|sh`·운영 DB 스키마 변경 등 차단 **(Claude 세션 전용)** |
 | 시크릿 차단 훅 (Write/Edit) | `.claude/hooks/block_secret_files.py` | `.env` 등 시크릿 파일 쓰기, 시크릿 문자열이 포함된 파일 쓰기 차단 **(Claude 세션 전용)** |
 | 시크릿 정규식 | `.claude/patterns/secrets.yaml` | AWS/GitHub/Slack/JWT/Stripe/Private Key/Kakao/NCP/Toss 등 27종 |
-| Claude 슬래시 커맨드 | `.claude/commands/{discuss,plan,execute,ship,pr-reviewer}.md` | 신규 작업 4-커맨드 파이프라인 + PR 리뷰 트랙 |
-| Codex 슬래시 커맨드 / 프롬프트 | `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` | 동일 이름·동일 흐름. 서브에이전트 호출 지점을 `## 인라인 가이드` 섹션으로 치환 |
+| Claude 슬래시 커맨드 | `.claude/commands/{discuss,plan-steps,execute,ship,pr-reviewer}.md` | 신규 작업 4-커맨드 파이프라인 + PR 리뷰 트랙 |
+| Codex 슬래시 커맨드 / 프롬프트 | `.codex/prompts/{discuss,plan-steps,execute,ship,pr-reviewer}.md` | 동일 이름·동일 흐름. 서브에이전트 호출 지점을 `## 인라인 가이드` 섹션으로 치환 |
 | Codex 기본 설정 | `.codex/config.toml` | `approval_policy="on-request"`, `sandbox_mode="workspace-write"`, `network_access=true` + 프로젝트 trust 승격 안내 |
-| Gemini 슬래시 커맨드 | `.gemini/commands/{discuss,plan,execute,ship,pr-reviewer}.toml` | 동일 이름·동일 흐름. TOML 단일 파일 (description + prompt 인라인). 서브에이전트 호출 지점은 인라인 가이드로 치환 (ADR-013) |
+| Gemini 슬래시 커맨드 | `.gemini/commands/{discuss,plan-steps,execute,ship,pr-reviewer}.toml` | 동일 이름·동일 흐름. TOML 단일 파일 (description + prompt 인라인). 서브에이전트 호출 지점은 인라인 가이드로 치환 (ADR-013) |
 | Gemini 기본 설정 | `.gemini/settings.json` | `{"sandbox": true}` — OS-level sandbox 권장값. 비활성화 시 위험 명령·시크릿 보호가 GEMINI.md soft lock 만 남음 (ADR-014) |
 | 서브에이전트 (Claude) | `.claude/agents/{tdd-tester,pre-commit-reviewer,pr-reviewer}.md` | TDD·리뷰·PR 리뷰 전용. 코드 탐색은 빌트인 `Explore` 에 위임 (ADR-020). Codex/Gemini 는 네이티브 미사용, 인라인 가이드로 대체 (ADR-001/013) |
 | 스택별 CLAUDE.md | `templates/{express,nextjs,flutter,nestjs,springboot,springboot-kotlin}/CLAUDE.md` | 아키텍처·스크립트·테스트 정책 + 올바른 모양 예시. `--cli=codex,gemini` 포함 시 동일 본문이 스택 경로의 `AGENTS.md` / `GEMINI.md` 로도 복제 |
@@ -31,7 +31,7 @@
 ```
 /discuss <설명>          PRD/ARCHITECTURE/ADR/(UI_GUIDE) 초안 + 브랜치 생성
        ↓ 사용자 승인
-/plan                    __docs/plan.json 으로 스텝 분해 (의존성·스코프 포함)
+/plan-steps                    __docs/plan.json 으로 스텝 분해 (의존성·스코프 포함)
        ↓ 사용자 승인
 /execute [next|all|<id>] 스텝 단위로 Explore → TDD → 구현 → 검증(lint/build) → 리뷰 → 커밋
        ↓ 모든 스텝 completed
@@ -52,7 +52,7 @@
 BLOCK 기준: 요구사항 미충족·로직 결함, 보안·시크릿 누출, 하네스 규약 위반(any 타입·하드코딩·네이밍 등). TDD 누락은 WARNING.
 
 각 커맨드 내부에서 호출되는 서브에이전트:
-- `Explore` (Claude Code 빌트인): `/discuss`, `/plan`, `/execute` 의 초반 컨텍스트 수집.
+- `Explore` (Claude Code 빌트인): `/discuss`, `/plan-steps`, `/execute` 의 초반 컨텍스트 수집.
 - `tdd-tester`: `/execute` 의 C 단계 (실패 테스트 작성).
 - `/code-review` (Claude Code 빌트인 스킬): `/execute` 의 G 단계 1번 — 일반 품질·버그.
 - `pre-commit-reviewer`: `/execute` 의 G 단계 2번 — 하네스 규정 전용 게이트, `/ship` 의 규정 검증.
@@ -106,8 +106,8 @@ git clone <이 레포> /tmp/agent-cairn
 설치 후 자동으로 수행되는 것 (`--cli` 값에 따라 분기):
 1. **공통**: `.gitignore` 에 하네스 블록 추가 (`__docs/`, `.env`, `.codex/sessions/` 등), `.env.example` 배포, `.github/PULL_REQUEST_TEMPLATE.md` 배포, 스택별 린트/포매터 설정.
 2. **Claude 포함 시**: `.claude/` (settings, hooks, patterns, commands, agents, templates/__docs) 배포 + `CLAUDE.md` 생성·마커 병합 (`<!-- agent-cairn:start -->` 안쪽만 교체, 바깥쪽 사용자 커스텀 보존). 모노레포 스택 경로에도 `CLAUDE.md` 생성.
-3. **Codex 포함 시**: `.codex/config.toml` 와 `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` 를 **루트 1회**만 배포, `AGENTS.md` 를 루트·모노레포 스택 경로에 `CLAUDE.md` 와 동일 본문으로 마커 병합. 종료 메시지에 `codex projects trust <target>` 안내 출력.
-4. **Gemini 포함 시**: `.gemini/settings.json` 와 `.gemini/commands/{discuss,plan,execute,ship,pr-reviewer}.toml` 를 **루트 1회**만 배포, `GEMINI.md` 를 루트·모노레포 스택 경로에 동일 본문으로 마커 병합. 종료 메시지에 sandbox 권장값·슬래시 바인딩 fallback·하드락 비대칭 경고 출력.
+3. **Codex 포함 시**: `.codex/config.toml` 와 `.codex/prompts/{discuss,plan-steps,execute,ship,pr-reviewer}.md` 를 **루트 1회**만 배포, `AGENTS.md` 를 루트·모노레포 스택 경로에 `CLAUDE.md` 와 동일 본문으로 마커 병합. 종료 메시지에 `codex projects trust <target>` 안내 출력.
+4. **Gemini 포함 시**: `.gemini/settings.json` 와 `.gemini/commands/{discuss,plan-steps,execute,ship,pr-reviewer}.toml` 를 **루트 1회**만 배포, `GEMINI.md` 를 루트·모노레포 스택 경로에 동일 본문으로 마커 병합. 종료 메시지에 sandbox 권장값·슬래시 바인딩 fallback·하드락 비대칭 경고 출력.
 
 ### Codex 설치 후 할 일 (수동)
 
@@ -127,7 +127,7 @@ trust_level = "trusted"
 ```markdown
 ## 슬래시 커맨드 대체 — Codex
 - `@.codex/prompts/discuss.md 의 절차를 따라 진행해주세요.`
-- `@.codex/prompts/plan.md ...` / `@.codex/prompts/execute.md ...` / `@.codex/prompts/ship.md ...`
+- `@.codex/prompts/plan-steps.md ...` / `@.codex/prompts/execute.md ...` / `@.codex/prompts/ship.md ...`
 - `@.codex/prompts/pr-reviewer.md 의 절차를 따라 PR <번호> 를 리뷰해주세요.`
 ```
 
@@ -142,7 +142,7 @@ Gemini CLI 는 프로젝트 루트의 `GEMINI.md` 와 `.gemini/commands/<n>.toml
 ```markdown
 ## 슬래시 커맨드 대체 — Gemini
 - `@.gemini/commands/discuss.toml 의 prompt 절차에 따라 진행해주세요.`
-- `@.gemini/commands/plan.toml ...` / `@.gemini/commands/execute.toml ...` / `@.gemini/commands/ship.toml ...`
+- `@.gemini/commands/plan-steps.toml ...` / `@.gemini/commands/execute.toml ...` / `@.gemini/commands/ship.toml ...`
 - `@.gemini/commands/pr-reviewer.toml 의 prompt 절차에 따라 PR <번호> 를 리뷰해주세요.`
 ```
 

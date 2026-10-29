@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Harness Plan",
-  "description": "`/plan` 이 생성하고 `/execute`, `/ship` 이 읽고 갱신하는 작업 상태 파일.",
+  "description": "`/plan-steps` 가 생성하고 `/execute`, `/ship` 이 읽고 갱신하는 작업 상태 파일.",
   "type": "object",
   "required": ["version", "branch", "type", "title", "created_at", "steps"],
   "properties": {

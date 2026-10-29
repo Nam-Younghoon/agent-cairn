@@ -4,7 +4,7 @@ argument-hint: (인자 없음 — 현재 브랜치의 PRD.md 기준)
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git status), Bash(git branch:*), Agent
 ---
 
-# /plan — PRD → 실행 가능한 스텝 분해
+# /plan-steps — PRD → 실행 가능한 스텝 분해
 
 이 커맨드는 `/discuss` 가 만든 `__docs/PRD.md` 를 기준으로 구현을 작은 단위로 쪼개어 `__docs/plan.json` 을 생성합니다.
 이 파일은 `/execute` 와 `/ship` 이 상태를 주고받는 **단일 진실 원천**입니다.

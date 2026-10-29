@@ -15,7 +15,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 > `.claude/VERSION_NOTES.md` 를 참조한다. 모델 라인업은 자주 바뀌므로 커맨드 본문에 고정하지 않는다.
 
 ## 선조건 확인
-1. `__docs/plan.json` 존재 확인. 없으면 `/plan` 을 먼저 돌리도록 안내.
+1. `__docs/plan.json` 존재 확인. 없으면 `/plan-steps` 을 먼저 돌리도록 안내.
 2. `status` 가 `planning` 이면 `in_progress` 로 전환하고 그대로 진행.
 3. 대상 스텝 결정:
    - `next`: `status == "pending"` 이고 `depends_on` 의 모든 스텝이 `completed` 인 것 중 id 가 가장 작은 것.

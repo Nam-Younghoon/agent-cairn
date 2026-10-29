@@ -1,9 +1,6 @@
-description = "PRD.md 를 읽어 실행 가능한 스텝으로 분해하고 __docs/plan.json 생성. Claude/Codex 의 동명 커맨드와 동일 흐름."
+# /plan-steps — PRD → 실행 가능한 스텝 분해
 
-prompt = '''
-# /plan — PRD → 실행 가능한 스텝 분해
-
-이 프롬프트는 Gemini CLI 에서 `/plan` 호출 시 Claude Code 의 동명 슬래시 커맨드와 **동일한 흐름**으로 동작합니다. 슬래시 바인딩이 미확정인 경우 `@.gemini/commands/plan.toml 의 prompt 절차에 따라 진행해주세요` 같이 파일 참조로 사용하세요.
+이 프롬프트는 Codex CLI 에서 `/plan-steps` 호출 시 Claude Code 의 동명 슬래시 커맨드와 **동일한 흐름**으로 동작합니다. 슬래시 바인딩이 미확정인 경우 `@.codex/prompts/plan-steps.md 의 절차를 따라 진행해주세요` 같이 파일 참조로 사용하세요.
 
 인자: 없음 (현재 브랜치의 `__docs/PRD.md` 기준)
 
@@ -44,7 +41,7 @@ PRD의 완료 기준 체크리스트 항목과 1:1 또는 1:N 매핑이 되도�
 ```
 
 ## 4단계. plan.json 생성
-`templates/__docs/plan.schema.json` (하네스 레포) 또는 소비자 프로젝트에 배포된 `.gemini/templates/__docs/plan.schema.json` (또는 `.claude/templates/__docs/plan.schema.json`) 중 존재하는 경로의 스키마를 따르는 `__docs/plan.json` 파일을 생성한다.
+`templates/__docs/plan.schema.json` (하네스 레포) 또는 소비자 프로젝트에 배포된 `.codex/templates/__docs/plan.schema.json` (또는 `.claude/templates/__docs/plan.schema.json`) 중 존재하는 경로의 스키마를 따르는 `__docs/plan.json` 파일을 생성한다.
 실제 값이 채워진 참고 예시는 동일 디렉토리의 `plan.example.json` 을 참조.
 
 최소 스켈레톤:
@@ -82,7 +79,7 @@ PRD의 완료 기준 체크리스트 항목과 1:1 또는 1:N 매핑이 되도�
 
 ## 인라인 가이드 — 병렬 탐색
 
-Claude 세션의 빌트인 `Explore` 에이전트를 Gemini 세션에서 직접 대체하는 절차. 탐색이 필요할 때 아래를 순서대로 따른다. **추측·제안·리팩터링 의견은 내지 않고 사실만 수집**.
+Claude 세션의 빌트인 `Explore` 에이전트를 Codex 세션에서 직접 대체하는 절차. 탐색이 필요할 때 아래를 순서대로 따른다. **추측·제안·리팩터링 의견은 내지 않고 사실만 수집**.
 
 ### 작업 범위
 - 특정 심볼/함수/파일의 위치와 사용처
@@ -112,4 +109,3 @@ Claude 세션의 빌트인 `Explore` 에이전트를 Gemini 세션에서 직접 
 - 탐색 진행 중 사용자에게 질문 (불명확한 부분은 탐색을 마친 뒤 메인 흐름에서 처리)
 - 장황한 배경 설명
 - 추측·의견 혼입 (탐색과 의사결정 단계를 분리)
-'''
