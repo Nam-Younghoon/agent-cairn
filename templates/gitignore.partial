@@ -3,6 +3,14 @@
 
 # 브랜치 전용 작업 문서 (PRD, ARCHITECTURE, ADR, UI_GUIDE)
 __docs/
+# 단, 하네스가 배포한 문서 템플릿은 **팀 공통 자산**이므로 되살린다.
+# 위 규칙은 깊이를 가리지 않아 .claude|.codex|.gemini/templates/__docs/ 까지 배제하는데,
+# 그러면 install.sh 가 복사에 성공해도 팀원이 커밋할 수 없어 clone 한 동료에게는
+# plan 스키마도 문서 템플릿도 없는 상태가 된다.
+# git 은 부모 디렉토리가 배제되면 내부 파일만 되살릴 수 없으므로 디렉토리 자체를 해제한다.
+!.claude/templates/__docs/
+!.codex/templates/__docs/
+!.gemini/templates/__docs/
 
 # git worktree (멀티 세션 격리) — 레포 내부에 생성되므로 추적 제외 (ADR-016/018)
 .claude/worktrees/

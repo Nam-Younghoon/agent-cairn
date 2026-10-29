@@ -162,6 +162,55 @@ else
 fi
 
 echo
+echo "===== 2c) 배포 자산의 커밋 가능성 (.gitignore 충돌) ====="
+
+# install.sh 가 복사에 성공해도 .gitignore 에 걸리면 팀원이 커밋할 수 없다.
+# "파일이 존재하는가" 만 보는 배포 검증으로는 잡히지 않으므로 git 에게 직접 묻는다.
+GI_TS="$(date +%s)-$$"
+GI_DIR="/tmp/ht-gi-$GI_TS"
+mkdir -p "$GI_DIR"
+if bash scripts/install.sh --cli=claude,codex,gemini --stack=express --target="$GI_DIR" >/dev/null 2>&1; then
+  git -C "$GI_DIR" init -q .
+  for p in .claude/templates/__docs/plan.schema.json \
+           .codex/templates/__docs/plan.schema.json \
+           .gemini/templates/__docs/plan.schema.json; do
+    if git -C "$GI_DIR" check-ignore -q --no-index "$p"; then
+      fail "gitignore: 배포된 $p 가 ignore 되어 커밋 불가"
+    else
+      ok "gitignore: $p 커밋 가능"
+    fi
+  done
+  # 반대 방향 — 브랜치 작업 문서는 여전히 배제돼야 한다. 화이트리스트가 과하면 유출된다.
+  if git -C "$GI_DIR" check-ignore -q --no-index "__docs/PRD.md"; then
+    ok "gitignore: 브랜치 작업 문서 __docs/ 는 배제 유지"
+  else
+    fail "gitignore: __docs/PRD.md 가 배제되지 않음 — 작업 문서 유출 위험"
+  fi
+else
+  fail "gitignore 검증용 설치 실패"
+fi
+
+# 구본 블록을 가진 기존 소비자 프로젝트에는 수동 조치를 안내해야 한다
+# (append_if_missing 은 marker 가 있으면 건너뛰므로 재설치로 고쳐지지 않는다).
+GI_OLD_DIR="/tmp/ht-gi-old-$GI_TS"
+mkdir -p "$GI_OLD_DIR"
+printf '# === agent-cairn — 하네스 기본 규칙 ===\n__docs/\n' > "$GI_OLD_DIR/.gitignore"
+GI_OLD_OUT="$(bash scripts/install.sh --cli=claude --stack=express --target="$GI_OLD_DIR" 2>&1 || true)"
+if grep -qF '!.claude/templates/__docs/' <<< "$GI_OLD_OUT"; then
+  ok "gitignore: 구본 블록에 수동 조치 안내 출력됨"
+else
+  fail "gitignore: 구본 블록인데 안내가 없음 — 조용히 커밋 불가 상태로 남는다"
+fi
+
+# 신규 설치에서는 그 경고가 나오면 안 된다 (오탐 방지).
+GI_NEW_OUT="$(bash scripts/install.sh --cli=claude --stack=express --target="/tmp/ht-gi-new-$GI_TS" 2>&1 || true)"
+if grep -qF '구본입니다' <<< "$GI_NEW_OUT"; then
+  fail "gitignore: 신규 설치인데 구본 경고가 출력됨 (오탐)"
+else
+  ok "gitignore: 신규 설치에는 구본 경고 없음"
+fi
+
+echo
 echo "===== 3) install.sh 문법 ====="
 if bash -n scripts/install.sh; then
   ok "bash -n install.sh"

@@ -202,6 +202,18 @@ append_if_missing "$HARNESS_DIR/templates/gitignore.partial" \
                   "$TARGET/.gitignore" \
                   "agent-cairn — 하네스 기본 규칙"
 
+# 기존 설치본은 marker 가 이미 있어 블록이 갱신되지 않는다(append_if_missing 은 추가만 한다).
+# 화이트리스트가 빠진 구본이면 배포한 문서 템플릿이 ignore 되어 **커밋 불가** 상태로 남는다 —
+# install.sh 는 성공하고 파일도 존재하는데 clone 한 동료에게만 없는, 알아채기 어려운 사고다.
+# 덮어쓰면 사용자 편집을 날릴 수 있으므로 고치지 않고 정확한 조치만 안내한다.
+if [[ -f "$TARGET/.gitignore" ]] && ! grep -qF '!.claude/templates/__docs/' "$TARGET/.gitignore"; then
+  echo "  [warn] .gitignore 의 하네스 블록이 구본입니다 (문서 템플릿이 커밋 불가 상태)."
+  echo "         '__docs/' 줄 아래에 다음 3줄을 추가하세요:"
+  echo "           !.claude/templates/__docs/"
+  echo "           !.codex/templates/__docs/"
+  echo "           !.gemini/templates/__docs/"
+fi
+
 if [[ ! -f "$TARGET/.env.example" || $FORCE -eq 1 ]]; then
   copy_file "$HARNESS_DIR/templates/env.example" "$TARGET/.env.example"
 fi
