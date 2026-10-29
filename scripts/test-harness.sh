@@ -67,6 +67,7 @@ required=(
   "templates/gitignore.partial"
   "templates/worktreeinclude.partial"
   "scripts/worktree.sh"
+  "scripts/migrate-consumers.sh"
   "templates/env.example"
   "scripts/install.sh"
   "scripts/_merge_claude.py"

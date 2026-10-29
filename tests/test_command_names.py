@@ -89,11 +89,14 @@ DEPRECATED_COMMAND_NAMES = {"plan"}
 # 이력을 기술하는 문서는 과거 이름 언급이 정당하므로 제외한다.
 _HISTORY_FILES = {"CHANGELOG.md", ".claude/VERSION_NOTES.md"}
 
+# 폐기 자산을 삭제하기 위해 구 이름을 지목해야 하는 정리 스크립트.
+_CLEANUP_SCRIPTS = {"scripts/migrate-consumers.sh"}
+
 _SCAN_GLOBS = (
     "README.md", "CLAUDE.md", "GEMINI.md",
     ".claude/commands/*.md", ".claude/agents/*.md",
     ".codex/prompts/*.md", ".gemini/commands/*.toml",
-    "scripts/*.sh",
+    "scripts/*.sh",  # 단, CLEANUP_SCRIPTS 는 제외 (_scan_files 참조)
     "templates/*/CLAUDE.md", "templates/__docs/*.md", "templates/__docs/*.json",
 )
 
@@ -126,7 +129,7 @@ def test_deprecated_command_name_is_not_referenced(deprecated: str) -> None:
     for pattern_glob in _SCAN_GLOBS:
         for path in sorted(_ROOT.glob(pattern_glob)):
             rel = str(path.relative_to(_ROOT))
-            if not path.is_file() or rel in _HISTORY_FILES:
+            if not path.is_file() or rel in _HISTORY_FILES or rel in _CLEANUP_SCRIPTS:
                 continue
             is_shell = path.suffix == ".sh"
             for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):

@@ -38,7 +38,7 @@ SCAN_GLOBS = (
     ".claude/agents/*.md",
     ".codex/prompts/*.md",
     ".gemini/commands/*.toml",
-    "scripts/*.sh",
+    "scripts/*.sh",  # 단, CLEANUP_SCRIPTS 는 제외 (_scan_files 참조)
     "templates/*/CLAUDE.md",
     "templates/__docs/*.md",
 )
@@ -46,11 +46,19 @@ SCAN_GLOBS = (
 _AGENT_TOKEN = re.compile(r"`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)`")
 
 
+# 폐기 자산을 "삭제하기 위해" 이름으로 지목해야 하는 정리 스크립트.
+# 지시문이 아니라 마이그레이션 코드이므로 잔존 참조 검사에서 제외한다.
+CLEANUP_SCRIPTS = {"scripts/migrate-consumers.sh"}
+
+
 def _scan_files() -> list[Path]:
     files: list[Path] = []
     for pattern in SCAN_GLOBS:
         files.extend(sorted(_ROOT.glob(pattern)))
-    return [f for f in files if f.is_file()]
+    return [
+        f for f in files
+        if f.is_file() and str(f.relative_to(_ROOT)) not in CLEANUP_SCRIPTS
+    ]
 
 
 def _defined_agents() -> set[str]:
