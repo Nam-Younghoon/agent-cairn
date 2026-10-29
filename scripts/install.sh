@@ -217,13 +217,13 @@ if has_cli claude; then
   copy_file "$HARNESS_DIR/.claude/hooks/block_dangerous.py"        "$TARGET/.claude/hooks/block_dangerous.py"
   copy_file "$HARNESS_DIR/.claude/hooks/block_secret_files.py"     "$TARGET/.claude/hooks/block_secret_files.py"
   copy_file "$HARNESS_DIR/.claude/patterns/secrets.yaml"           "$TARGET/.claude/patterns/secrets.yaml"
+  copy_file "$HARNESS_DIR/.claude/VERSION_NOTES.md"               "$TARGET/.claude/VERSION_NOTES.md"
   copy_file "$HARNESS_DIR/.claude/commands/discuss.md"             "$TARGET/.claude/commands/discuss.md"
-  copy_file "$HARNESS_DIR/.claude/commands/plan.md"                "$TARGET/.claude/commands/plan.md"
+  copy_file "$HARNESS_DIR/.claude/commands/plan-steps.md"          "$TARGET/.claude/commands/plan-steps.md"
   copy_file "$HARNESS_DIR/.claude/commands/execute.md"             "$TARGET/.claude/commands/execute.md"
   copy_file "$HARNESS_DIR/.claude/commands/ship.md"                "$TARGET/.claude/commands/ship.md"
   copy_file "$HARNESS_DIR/.claude/commands/pr-reviewer.md"         "$TARGET/.claude/commands/pr-reviewer.md"
   copy_file "$HARNESS_DIR/.claude/agents/tdd-tester.md"            "$TARGET/.claude/agents/tdd-tester.md"
-  copy_file "$HARNESS_DIR/.claude/agents/parallel-explorer.md"     "$TARGET/.claude/agents/parallel-explorer.md"
   copy_file "$HARNESS_DIR/.claude/agents/pre-commit-reviewer.md"   "$TARGET/.claude/agents/pre-commit-reviewer.md"
   copy_file "$HARNESS_DIR/.claude/agents/pr-reviewer.md"           "$TARGET/.claude/agents/pr-reviewer.md"
 
@@ -244,7 +244,7 @@ if has_cli codex; then
   echo "[install] .codex/ 자산 배포 (Codex)"
   copy_file "$HARNESS_DIR/.codex/config.toml"         "$TARGET/.codex/config.toml"
   copy_file "$HARNESS_DIR/.codex/prompts/discuss.md"     "$TARGET/.codex/prompts/discuss.md"
-  copy_file "$HARNESS_DIR/.codex/prompts/plan.md"        "$TARGET/.codex/prompts/plan.md"
+  copy_file "$HARNESS_DIR/.codex/prompts/plan-steps.md"  "$TARGET/.codex/prompts/plan-steps.md"
   copy_file "$HARNESS_DIR/.codex/prompts/execute.md"     "$TARGET/.codex/prompts/execute.md"
   copy_file "$HARNESS_DIR/.codex/prompts/ship.md"        "$TARGET/.codex/prompts/ship.md"
   copy_file "$HARNESS_DIR/.codex/prompts/pr-reviewer.md" "$TARGET/.codex/prompts/pr-reviewer.md"
@@ -266,7 +266,7 @@ if has_cli gemini; then
   echo "[install] .gemini/ 자산 배포 (Gemini)"
   copy_file "$HARNESS_DIR/.gemini/settings.json"                "$TARGET/.gemini/settings.json"
   copy_file "$HARNESS_DIR/.gemini/commands/discuss.toml"        "$TARGET/.gemini/commands/discuss.toml"
-  copy_file "$HARNESS_DIR/.gemini/commands/plan.toml"           "$TARGET/.gemini/commands/plan.toml"
+  copy_file "$HARNESS_DIR/.gemini/commands/plan-steps.toml"     "$TARGET/.gemini/commands/plan-steps.toml"
   copy_file "$HARNESS_DIR/.gemini/commands/execute.toml"        "$TARGET/.gemini/commands/execute.toml"
   copy_file "$HARNESS_DIR/.gemini/commands/ship.toml"           "$TARGET/.gemini/commands/ship.toml"
   copy_file "$HARNESS_DIR/.gemini/commands/pr-reviewer.toml"    "$TARGET/.gemini/commands/pr-reviewer.toml"
@@ -416,7 +416,11 @@ if has_cli claude; then
 [Claude Code] 다음 단계:
   1. 프로젝트를 열고 Claude Code 를 실행합니다.
   2. /discuss <작업 내용> 으로 요구사항 논의를 시작합니다.
-  3. 승인 후 /plan → /execute → /ship 순으로 진행합니다.
+  3. 승인 후 /plan-steps → /execute → /ship 순으로 진행합니다.
+
+  [기존 설치 프로젝트] /plan 은 Claude Code 내장 커맨드와 겹쳐 /plan-steps 로 개명되었습니다.
+  구본이 남아 있으면 내장 /plan 을 계속 가리므로 아래를 삭제하세요:
+    .claude/commands/plan.md  .codex/prompts/plan.md  .gemini/commands/plan.toml
 EOF
 fi
 
@@ -431,7 +435,11 @@ if has_cli codex; then
        trust_level = "trusted"
   2. /discuss <작업 내용> 으로 요구사항 논의를 시작합니다.
      슬래시 커맨드가 자동 바인딩되지 않으면 @.codex/prompts/discuss.md 의 절차를 따르도록 요청해주세요.
-  3. 승인 후 /plan → /execute → /ship 순으로 진행합니다.
+  3. 승인 후 /plan-steps → /execute → /ship 순으로 진행합니다.
+
+  [기존 설치 프로젝트] /plan 은 Claude Code 내장 커맨드와 겹쳐 /plan-steps 로 개명되었습니다.
+  구본이 남아 있으면 내장 /plan 을 계속 가리므로 아래를 삭제하세요:
+    .claude/commands/plan.md  .codex/prompts/plan.md  .gemini/commands/plan.toml
   * Codex 세션은 Claude 훅의 위험 명령 / .env·시크릿 차단이 적용되지 않습니다.
     승인 정책(on-request)과 샌드박스(workspace-write)로만 보호되므로 각별히 주의하세요.
 EOF
@@ -447,7 +455,11 @@ if has_cli gemini; then
   2. /discuss <작업 내용> 으로 요구사항 논의를 시작합니다.
      슬래시 커맨드 자동 바인딩은 본 사이클에서 실측하지 않았습니다. 바인딩이 안 되면
      @.gemini/commands/discuss.toml 의 prompt 절차에 따라 진행해주세요.
-  3. 승인 후 /plan → /execute → /ship 순으로 진행합니다.
+  3. 승인 후 /plan-steps → /execute → /ship 순으로 진행합니다.
+
+  [기존 설치 프로젝트] /plan 은 Claude Code 내장 커맨드와 겹쳐 /plan-steps 로 개명되었습니다.
+  구본이 남아 있으면 내장 /plan 을 계속 가리므로 아래를 삭제하세요:
+    .claude/commands/plan.md  .codex/prompts/plan.md  .gemini/commands/plan.toml
   * Gemini 세션은 Claude 훅의 위험 명령 / .env·시크릿 차단이 적용되지 않습니다.
     sandbox 와 GEMINI.md 의 에이전트 행동 규칙(soft lock) 두 계층으로만 보호되므로
     프로젝트 내부에서의 위험 명령·시크릿 쓰기는 모델 준수에 의존합니다. 각별히 주의하세요.

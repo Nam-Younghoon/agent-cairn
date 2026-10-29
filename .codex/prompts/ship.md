@@ -94,6 +94,10 @@ PR 본문은 `__docs/PRD.md` 와 `plan.json` 으로부터 자동 생성:
 
 Claude 의 `pre-commit-reviewer` 에이전트를 Codex 세션에서 대체하는 절차. 최종 검증 실패 시 원인 분석에도 사용.
 
+> **Claude 쪽과 1:1 동기화하지 말 것.** Claude 세션은 `/code-review` 빌트인 스킬이 일반 품질을,
+> `pre-commit-reviewer` 서브에이전트가 하네스 규정을 나눠 본다(ADR-020). Codex 에는 대응 네이티브
+> 스킬이 없으므로 **이 인라인 가이드가 일반 품질 + 하네스 규정을 모두** 담당한다. 항목을 덜어내지 않는다.
+
 ### 점검 항목
 
 **A. 하네스 규정**

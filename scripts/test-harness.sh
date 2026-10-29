@@ -33,12 +33,12 @@ required=(
   ".claude/hooks/block_dangerous.py"
   ".claude/hooks/block_secret_files.py"
   ".claude/patterns/secrets.yaml"
+  ".claude/VERSION_NOTES.md"
   ".claude/commands/discuss.md"
-  ".claude/commands/plan.md"
+  ".claude/commands/plan-steps.md"
   ".claude/commands/execute.md"
   ".claude/commands/ship.md"
   ".claude/commands/pr-reviewer.md"
-  ".claude/agents/parallel-explorer.md"
   ".claude/agents/tdd-tester.md"
   ".claude/agents/pre-commit-reviewer.md"
   ".claude/agents/pr-reviewer.md"
@@ -72,12 +72,12 @@ required=(
   "scripts/_merge_claude.py"
   ".codex/config.toml"
   ".codex/prompts/discuss.md"
-  ".codex/prompts/plan.md"
+  ".codex/prompts/plan-steps.md"
   ".codex/prompts/execute.md"
   ".codex/prompts/ship.md"
   ".codex/prompts/pr-reviewer.md"
   ".gemini/commands/discuss.toml"
-  ".gemini/commands/plan.toml"
+  ".gemini/commands/plan-steps.toml"
   ".gemini/commands/execute.toml"
   ".gemini/commands/ship.toml"
   ".gemini/commands/pr-reviewer.toml"
@@ -451,12 +451,12 @@ echo
 echo "===== 4e) .codex/prompts/*.md 배포 + 인라인 가이드 ====="
 
 # 4d 에서 이미 생성된 CODEX_ONLY_DIR 재사용
-for cmd in discuss plan execute ship pr-reviewer; do
+for cmd in discuss plan-steps execute ship pr-reviewer; do
   assert_file_exists "codex-only: prompts/$cmd.md" "$CODEX_ONLY_DIR/.codex/prompts/$cmd.md"
 done
 
 # 각 프롬프트에 인라인 가이드 섹션 최소 1개 포함
-for cmd in discuss plan execute ship pr-reviewer; do
+for cmd in discuss plan-steps execute ship pr-reviewer; do
   if grep -q "^## 인라인 가이드" "$CODEX_ONLY_DIR/.codex/prompts/$cmd.md" 2>/dev/null; then
     ok "codex-only: prompts/$cmd.md 에 인라인 가이드 섹션 포함"
   else
@@ -475,7 +475,7 @@ for guide in "병렬 탐색" "실패 테스트 선 작성" "커밋 전 리뷰"; 
 done
 
 # 모노레포 시나리오: 앱 경로에 prompts 중복 배포되지 않음
-for cmd in discuss plan execute ship pr-reviewer; do
+for cmd in discuss plan-steps execute ship pr-reviewer; do
   assert_file_missing "codex-mono: apps/api/.codex/prompts/$cmd.md 부재" \
     "$CODEX_MONO_DIR/apps/api/.codex/prompts/$cmd.md"
 done
@@ -776,7 +776,7 @@ else
 fi
 
 # (B) .gemini/ 자산 배포 (commands 5종 + settings.json)
-for cmd in discuss plan execute ship pr-reviewer; do
+for cmd in discuss plan-steps execute ship pr-reviewer; do
   assert_file_exists "gemini-only: commands/$cmd.toml" "$GEMINI_ONLY_DIR/.gemini/commands/$cmd.toml"
 done
 assert_file_exists "gemini-only: settings.json" "$GEMINI_ONLY_DIR/.gemini/settings.json"
@@ -845,7 +845,7 @@ assert_file_missing "gemini-mono: apps/api/.gemini/ 부재"     "$GEMINI_MONO_DI
 assert_file_missing "gemini-mono: apps/web/.gemini/ 부재"     "$GEMINI_MONO_DIR/apps/web/.gemini/settings.json"
 
 # (G) 각 commands/<n>.toml 의 prompt 본문 인라인 가이드 섹션 존재
-for cmd in discuss plan execute ship pr-reviewer; do
+for cmd in discuss plan-steps execute ship pr-reviewer; do
   if grep -qF "## 인라인 가이드" "$GEMINI_ONLY_DIR/.gemini/commands/$cmd.toml" 2>/dev/null; then
     ok "gemini-only: commands/$cmd.toml 에 인라인 가이드 섹션 포함"
   else

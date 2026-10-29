@@ -32,14 +32,14 @@
 ### 1. 슬래시 커맨드 파이프라인
 **신규 작업 파이프라인 (4단계)** — 각 단계는 사용자 승인 후 다음으로 진행합니다:
 1.  `/discuss <설명>`: 요구사항 분석, 브랜치 생성 및 `__docs/` 내 문서 생성 (PRD, ARCHITECTURE, ADR). 브랜치는 `git switch -c <branch> origin/<base>` 로 생성해 워크트리에서도 안전합니다.
-2.  `/plan`: 작업을 `__docs/plan.json`에 상세 단계별로 분해.
+2.  `/plan-steps`: 작업을 `__docs/plan.json`에 상세 단계별로 분해.
 3.  `/execute [next|all]`: 각 단계별로 TDD → 구현 → 검증 → 커밋을 반복 수행.
 4.  `/ship`: 최종 검증, `dev` 브랜치 동기화, Pull Request 생성, 워크트리 정리.
 
 **PR 리뷰 트랙 (독립)**:
 - `/pr-reviewer <PR번호> [추가 메시지]`: 지정된 PR 을 4단계(컨텍스트 수집 → 요구사항 검증 → 사이드 이펙트 분석 → 전사 재검수)로 리뷰하고 PASS|BLOCK 판정. 사용자 승인 시에만 PR 코멘트를 게시합니다.
 
-> Gemini 세션에서는 위 커맨드가 `.gemini/commands/<name>.toml` 의 `prompt` 본문으로 정의됩니다. Claude 의 서브에이전트(parallel-explorer/tdd-tester/pre-commit-reviewer/pr-reviewer) 호출 지점은 `## 인라인 가이드` 섹션으로 치환되어 단일 세션에서 직접 수행됩니다.
+> Gemini 세션에서는 위 커맨드가 `.gemini/commands/<name>.toml` 의 `prompt` 본문으로 정의됩니다. Claude 의 서브에이전트(tdd-tester/pre-commit-reviewer/pr-reviewer)와 빌트인 탐색 에이전트 호출 지점은 `## 인라인 가이드` 섹션으로 치환되어 단일 세션에서 직접 수행됩니다.
 
 ### 2. 안전장치 (하드락)
 위험 명령(`rm -rf`, `git push --force`, `git reset --hard`, `prod` 환경의 `DROP/ALTER TABLE`, Flyway/Liquibase 파괴 명령)과 시크릿(`.env` 쓰기, `.claude/patterns/secrets.yaml` 패턴)에 대한 보호는 **CLI 별로 강도가 다릅니다**:
@@ -55,7 +55,7 @@
 ### 3. 주요 실천 지침
 - **TDD 필수**: 모든 구현은 반드시 실패하는 테스트 작성부터 시작해야 합니다.
 - **작은 단위 커밋**: 계획된 각 단계는 깨끗하고 작은 단위의 커밋으로 이어져야 합니다.
-- **문서 우선**: `/discuss` 및 `/plan`이 승인되기 전에는 코드 수정을 시작하지 않습니다.
+- **문서 우선**: `/discuss` 및 `/plan-steps`이 승인되기 전에는 코드 수정을 시작하지 않습니다.
 - **브랜치 전략**: Conventional Commits를 기반으로 `<type>/<kebab-case-summary>` 형식을 따릅니다.
 
 ### 4. 워크트리 — 멀티 세션 격리
@@ -63,7 +63,7 @@
 
 - **Gemini / Codex**: `scripts/worktree.sh new <task> [base]` → `.worktrees/<task>` 생성 + `.worktreeinclude` 파일(.env 등) 승계 복사. 그 안에서 세션을 띄웁니다. (`install.sh --with-worktree` 로 설치된 프로젝트에서 사용)
 - **Claude**: 네이티브 `claude --worktree <name>` 사용.
-- **진입 후**: 평소처럼 `/discuss → /plan → /execute → /ship`. 정리는 `scripts/worktree.sh clean <task>` (또는 Claude 네이티브 자동 정리).
+- **진입 후**: 평소처럼 `/discuss → /plan-steps → /execute → /ship`. 정리는 `scripts/worktree.sh clean <task>` (또는 Claude 네이티브 자동 정리).
 - 작업 하나만 직렬로 진행한다면 워크트리 없이 그대로 동작합니다.
 
 ## 주요 디렉토리 구조

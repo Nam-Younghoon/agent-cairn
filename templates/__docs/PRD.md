@@ -31,7 +31,7 @@ feat | fix | chore | refactor | design | docs | test
 <!--
 - 각 항목은 테스트로 검증 가능해야 한다.
 - "XXX 이면 YYY 반환" "ZZZ 시 알림 표시" 등 구체적으로.
-- 이 체크리스트가 /plan 의 스텝 분해 기준이 된다.
+- 이 체크리스트가 /plan-steps 의 스텝 분해 기준이 된다.
 -->
 - [ ] ...
 - [ ] ...

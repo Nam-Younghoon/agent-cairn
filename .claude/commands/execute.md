@@ -1,7 +1,7 @@
 ---
 description: plan.json 의 다음 스텝을 실행 (TDD → 구현 → lint/build → 커밋)
 argument-hint: [next | all | <stepId>]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 ---
 
 # /execute — plan.json 기반 스텝 실행
@@ -11,13 +11,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 - `<stepId>`: 특정 스텝 id 수행
 - `all`: 차단 상태가 될 때까지 연속 수행
 
-> **모델 선택 가이드 (`all` 장기 자율 실행)**
-> `all` 은 여러 스텝을 연속으로 자율 실행하므로, 어렵고 긴 작업이라면 실행 **직전에 세션 모델을 Fable 로 전환**하는 것을 권장한다: `/model fable` → `/execute all` → 완료 후 `/model opus` 로 복귀.
-> Fable 은 장기 자율 실행(long-horizon agentic)에 강점이 있으나 최상위 티어라 비용이 크므로, `next`·`<stepId>` 같은 단발 실행에는 세션 기본 모델(예: Opus)을 그대로 쓴다.
-> 커맨드 프론트매터의 `model:` 은 인자별 조건 분기가 불가능하고 override 가 해당 턴에만 적용되어 다중 스텝 실행 내내 유지되지 않으므로, 이 전환은 **세션 모델 변경(`/model`)** 으로만 안정적으로 동작한다.
+> **모델 선택 가이드**: `all` 처럼 여러 스텝을 연속 자율 실행할 때의 모델 전환 권장안은
+> `.claude/VERSION_NOTES.md` 를 참조한다. 모델 라인업은 자주 바뀌므로 커맨드 본문에 고정하지 않는다.
 
 ## 선조건 확인
-1. `__docs/plan.json` 존재 확인. 없으면 `/plan` 을 먼저 돌리도록 안내.
+1. `__docs/plan.json` 존재 확인. 없으면 `/plan-steps` 을 먼저 돌리도록 안내.
 2. `status` 가 `planning` 이면 `in_progress` 로 전환하고 그대로 진행.
 3. 대상 스텝 결정:
    - `next`: `status == "pending"` 이고 `depends_on` 의 모든 스텝이 `completed` 인 것 중 id 가 가장 작은 것.
@@ -29,7 +27,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 - plan.json 의 해당 스텝 `status` 를 `in_progress` 로 변경하고 저장.
 
 ### B. 컨텍스트 수집 (병렬)
-- `parallel-explorer` 서브에이전트를 병렬로 호출하여 스텝이 건드릴 기존 파일·인터페이스·테스트를 빠르게 파악한다.
+- 빌트인 `Explore` 서브에이전트를 병렬로 호출하여 스텝이 건드릴 기존 파일·인터페이스·테스트를 빠르게 파악한다.
 - 관련 `__docs/ARCHITECTURE.md`, `__docs/ADR.md` 가 있으면 **먼저 읽는다**.
 
 ### C. TDD — 실패 테스트 작성
@@ -53,9 +51,18 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 - 3회 이후에도 실패하면 스텝을 `error` 상태로 두고 사용자에게 보고 → 중단.
 - 외부 요인(API 키 누락, 네트워크 불가, 권한 부족 등) 은 **재시도하지 않고** 즉시 `blocked` 로 기록하고 사용자 개입 요청.
 
-### G. 리뷰 게이트
-- `pre-commit-reviewer` 서브에이전트를 호출해 변경분을 검토.
-- `BLOCK` 판정 시 F 로 돌아가 동일 사이클 반복 (재시도 카운트 공유).
+### G. 리뷰 게이트 (2단)
+일반 품질과 하네스 규정을 **서로 다른 주체**가 본다. 중복 리뷰를 피하기 위한 분리다 (ADR-020).
+
+1. **`/code-review`** (Claude Code 빌트인 스킬) — 버그·중복·에러 처리·가독성 등 일반 품질.
+   변경 규모가 작으면 기본 effort, 핵심 로직이면 `high` 로 올린다.
+2. **`pre-commit-reviewer`** 서브에이전트 — 네이티브가 알 수 없는 **하네스 규정만** 검증
+   (시크릿/`.env.example` 동반 갱신, TDD 준수, `any` 금지, 스텝 범위 이탈).
+   1번 결과 요약을 함께 전달해 같은 지적을 반복하지 않게 한다.
+
+둘 중 하나라도 `BLOCK` 이면 F 로 돌아가 동일 사이클 반복 (재시도 카운트 공유).
+
+> `/code-review` 를 쓸 수 없는 환경이면 `.claude/VERSION_NOTES.md` §1 의 폴백(`pre-commit-reviewer` 에 일반 품질 항목 한시 복원)을 따른다.
 
 ### H. 커밋
 - 커밋 메시지: `<type>: <스텝 제목>` + 본문에 "왜" 와 주요 변경.

@@ -1,7 +1,7 @@
 ---
 description: 완료된 작업을 dev 로 동기화하고 push 후 PR 생성
 argument-hint: (인자 없음)
-allowed-tools: Read, Write, Edit, Bash, Agent
+allowed-tools: Read, Write, Edit, Bash, Agent, Skill
 ---
 
 # /ship — 출고 (dev 동기화 → push → PR)
@@ -15,7 +15,9 @@ allowed-tools: Read, Write, Edit, Bash, Agent
 
 ## 2단계. 최종 검증
 - 전체 테스트·린트·빌드를 한 번 더 돌린다 (각 스텝에서 통과했어도 종합적으로 한 번 더).
-- 실패 시 `pre-commit-reviewer` 서브에이전트에게 분석 위임 → 사용자에게 보고 후 중단.
+- 실패 시 원인에 따라 분석을 위임한다 → 사용자에게 보고 후 중단.
+  - 코드 품질·버그로 보이면 `/code-review` 스킬.
+  - 하네스 규정 위반(시크릿·TDD·`any`·`.env.example` 누락)으로 보이면 `pre-commit-reviewer` 서브에이전트.
 
 ## 3단계. dev 최신화
 ```

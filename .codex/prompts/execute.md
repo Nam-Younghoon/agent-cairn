@@ -8,7 +8,7 @@
 - `all`: 차단 상태가 될 때까지 연속 수행
 
 ## 선조건 확인
-1. `__docs/plan.json` 존재 확인. 없으면 `/plan` 을 먼저 돌리도록 안내.
+1. `__docs/plan.json` 존재 확인. 없으면 `/plan-steps` 을 먼저 돌리도록 안내.
 2. `status` 가 `planning` 이면 `in_progress` 로 전환하고 그대로 진행.
 3. 대상 스텝 결정:
    - `next`: `status == "pending"` 이고 `depends_on` 의 모든 스텝이 `completed` 인 것 중 id 가 가장 작은 것.
@@ -79,7 +79,7 @@
 
 ## 인라인 가이드 — 병렬 탐색
 
-Claude 의 `parallel-explorer` 에이전트를 Codex 세션에서 대체하는 절차. **사실만 수집**, 추측·제안 금지.
+Claude 세션의 빌트인 `Explore` 에이전트를 Codex 세션에서 대체하는 절차. **사실만 수집**, 추측·제안 금지.
 
 ### 절차
 1. 질문을 분해해 **독립적인 검색 쿼리 목록**을 만든다.
@@ -142,6 +142,10 @@ Claude 의 `tdd-tester` 에이전트를 Codex 세션에서 대체하는 절차. 
 ## 인라인 가이드 — 커밋 전 리뷰
 
 Claude 의 `pre-commit-reviewer` 에이전트를 Codex 세션에서 대체하는 절차. **변경된 파일만** 검토. PASS 판정 남발 금지.
+
+> **Claude 쪽과 1:1 동기화하지 말 것.** Claude 세션은 `/code-review` 빌트인 스킬이 일반 품질을,
+> `pre-commit-reviewer` 서브에이전트가 하네스 규정을 나눠 본다(ADR-020). Codex 에는 대응 네이티브
+> 스킬이 없으므로 **이 인라인 가이드가 일반 품질 + 하네스 규정을 모두** 담당한다. 항목을 덜어내지 않는다.
 
 ### 점검 항목
 

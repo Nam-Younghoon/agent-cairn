@@ -8,11 +8,11 @@ allowed-tools: Bash, Read, Write, Grep, Agent
 
 입력: $ARGUMENTS
 
-이 커맨드는 `/discuss → /plan → /execute → /ship` 파이프라인과 **독립된 별도 트랙**입니다. 이미 올라온 PR 을 대상으로 동작하며, 브랜치 분기·코드 수정·커밋을 수행하지 않습니다.
+이 커맨드는 `/discuss → /plan-steps → /execute → /ship` 파이프라인과 **독립된 별도 트랙**입니다. 이미 올라온 PR 을 대상으로 동작하며, 브랜치 분기·코드 수정·커밋을 수행하지 않습니다.
 
 ## 서브에이전트 호출 흐름 (요약)
 - **`pr-reviewer`**: 컨텍스트 수집·요구사항 검증·사이드 이펙트 분석·전사 재검수 전 과정을 수행. 본 커맨드의 핵심.
-- 다른 서브에이전트(`parallel-explorer`, `tdd-tester`, `pre-commit-reviewer`)는 본 커맨드에서 호출하지 **않는다**.
+- 다른 서브에이전트(`tdd-tester`, `pre-commit-reviewer`)와 빌트인 `Explore` 는 본 커맨드에서 호출하지 **않는다**.
 
 ---
 
