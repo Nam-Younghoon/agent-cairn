@@ -193,6 +193,11 @@ echo "[install] 루트 공통 자산 배포"
 
 copy_file "$HARNESS_DIR/templates/github/PULL_REQUEST_TEMPLATE.md" "$TARGET/.github/PULL_REQUEST_TEMPLATE.md"
 
+# plan.json 의 wave 계산기 겸 단일 기록기 — 세 CLI 의 /plan-steps·/execute 가 공유한다.
+# 표준 라이브러리만 쓰므로 python3 만 있으면 된다 (ADR-022).
+copy_file "$HARNESS_DIR/scripts/plan_waves.py" "$TARGET/scripts/plan_waves.py"
+chmod +x "$TARGET/scripts/plan_waves.py" 2>/dev/null || true
+
 append_if_missing "$HARNESS_DIR/templates/gitignore.partial" \
                   "$TARGET/.gitignore" \
                   "agent-cairn — 하네스 기본 규칙"

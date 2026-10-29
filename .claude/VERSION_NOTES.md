@@ -18,6 +18,24 @@
 | `/code-review` 스킬 (빌트인) | `/execute` G단계 1번, `/ship` 2단계 실패 분석 | `pre-commit-reviewer` 에 일반 품질 항목(중복·에러 처리·가독성)을 한시적으로 복원 |
 | `claude --worktree <name>` | CLAUDE.md §2.7 멀티 세션 격리 | `scripts/worktree.sh new <task>` (`install.sh --with-worktree` 필요) 또는 `git worktree add` |
 | 플랜 모드 | `/plan-steps` 의 스텝 분해 보조 | `__docs/plan.json` 수동 작성. plan.json 이 단일 진실 원천이므로 기능 손실은 없다 |
+| `Agent(isolation: "worktree")` | `/execute` 웨이브 병렬 실행의 워커 | Codex/Gemini 와 동일하게 `git worktree add` + 헤드리스 fan-out. 그것도 안 되면 `/execute next` 반복(순차) — 병렬은 최적화일 뿐이다 |
+
+### `Agent(isolation: "worktree")` — 실측 기반 의존성 (주의)
+
+`/execute` 의 병렬 실행은 **문서화되지 않은 동작에 기대고 있다**. 2026-10-29 실측 결과이며
+(상세는 `__docs/ADR.md` ADR-022), Claude Code 가 워크트리 규칙을 바꾸면 조용히 깨진다.
+
+| 실측 사실 | `/execute` 가 의존하는 방식 | 깨졌을 때의 증상 |
+| --- | --- | --- |
+| 워커 워크트리는 **저장소 기본 브랜치 tip** 에서 시작한다 (오케스트레이터 HEAD 가 아니다) | 워커 첫 동작으로 `git switch -C <브랜치> <BASE_SHA>` 를 실행해 베이스를 명시 고정 | 베이스 규칙이 바뀌면 고정이 무해한 no-op 이 될 뿐이라 **안전한 방향으로 깨진다** |
+| `worktree.baseRef: "head"` 는 서브에이전트 격리 워크트리에 적용되지 않는다 | 이 설정에 의존하지 않는다 | — |
+| 커밋을 남긴 워커 워크트리는 **자동 정리되지 않는다** | 오케스트레이터가 `git worktree remove` + `git branch -D` 로 명시 제거 | 자동 정리가 생기면 제거 명령이 실패한다. 실패를 무시하도록 둘 것 |
+| 워커 브랜치 이름은 `worktree-agent-<agentId>`, 경로는 `.claude/worktrees/agent-<agentId>` | 뒷정리 대상 경로 산출 | 이름 규칙이 바뀌면 워크트리가 쌓인다. `git worktree list` 로 확인 |
+| 워커 커밋은 `.git` 공유로 메인 저장소에서 바로 보인다 | cherry-pick 으로 회수 | 격리되면 회수 불가 → 병렬 모드 전면 폐기하고 순차로 복귀 |
+| 워크트리 격리 세션은 **복합 셸 명령을 거부**한다 | 워커 프롬프트가 명령 체이닝을 금지 | 완화되면 무해 |
+
+점검 방법: `__docs/plan.json` 에 `touches` 가 겹치지 않는 더미 스텝 2개를 두고 `/execute parallel`
+을 돌린다. 두 워커의 커밋이 모두 회수되고 워크트리가 남지 않으면 정상이다.
 
 > Codex / Gemini 세션에는 위 자산이 **없다**. `.codex/prompts/*.md` 와 `.gemini/commands/*.toml` 의
 > `## 인라인 가이드` 섹션이 같은 역할을 직접 수행하므로, Claude 쪽을 슬림화했다고 해서
@@ -86,3 +104,4 @@ strings -a "$BIN" | grep -oE 'type:"(local-jsx|local|prompt)",name:"[a-z][a-z0-9
 | --- | --- |
 | 2026-10-29 | 최초 작성. `parallel-explorer` 폐기 → `Explore` 위임, `/code-review` 2단 게이트 도입에 따른 의존성 정리 (ADR-020) |
 | 2026-10-29 | §3 신설. 내장 `/plan` 과의 이름 충돌 확인 후 하네스 커맨드를 `/plan-steps` 로 개명 (ADR-021) |
+| 2026-10-29 | §1 에 `Agent(isolation: "worktree")` 추가. `/execute` 웨이브 병렬 실행의 워커 기반이며 **실측 기반 의존성**이라 전용 표로 분리 (ADR-022) |

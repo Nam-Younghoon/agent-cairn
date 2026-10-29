@@ -71,6 +71,8 @@ required=(
   "templates/env.example"
   "scripts/install.sh"
   "scripts/_merge_claude.py"
+  "scripts/plan_waves.py"
+  "tests/test_plan_waves.py"
   ".codex/config.toml"
   ".codex/prompts/discuss.md"
   ".codex/prompts/plan-steps.md"
@@ -91,6 +93,73 @@ for f in "${required[@]}"; do
     fail "누락: $f"
   fi
 done
+
+echo
+echo "===== 2b) 웨이브 병렬 실행 자산 (ADR-022) ====="
+
+# touches 는 병렬 판정의 입력이다. 스키마에서 빠지면 /plan-steps 가 채울 근거가 사라진다.
+if grep -qF '"touches"' templates/__docs/plan.schema.json; then
+  ok "plan.schema.json: touches 정의됨"
+else
+  fail "plan.schema.json 에 touches 정의 누락"
+fi
+
+if grep -qF '"touches"' templates/__docs/plan.example.json; then
+  ok "plan.example.json: touches 예시 반영됨"
+else
+  fail "plan.example.json 에 touches 예시 누락"
+fi
+
+# 세 CLI 가 모두 touches 를 채우도록 지시해야 한다. 하나라도 빠지면 그 CLI 의 plan.json 은
+# 병렬화되지 않고 조용히 순차로 퇴화한다 — 에러 없이 느려지므로 사람이 알아채기 어렵다.
+for f in .claude/commands/plan-steps.md .codex/prompts/plan-steps.md .gemini/commands/plan-steps.toml; do
+  if grep -qF 'touches' "$f"; then
+    ok "touches 작성 지침: $f"
+  else
+    fail "touches 작성 지침 누락: $f"
+  fi
+done
+
+# 세 CLI 의 /execute 가 모두 웨이브 계산을 스크립트에 위임해야 한다.
+for f in .claude/commands/execute.md .codex/prompts/execute.md .gemini/commands/execute.toml; do
+  if grep -qF 'plan_waves.py wave' "$f"; then
+    ok "웨이브 계산 위임: $f"
+  else
+    fail "웨이브 계산 위임 누락: $f"
+  fi
+done
+
+# Codex/Gemini 에는 빌트인 워커가 없으므로 셸 fan-out 폴백이 반드시 있어야 한다 (의도된 비대칭).
+for f in .codex/prompts/execute.md .gemini/commands/execute.toml; do
+  if grep -qF '셸 fan-out' "$f"; then
+    ok "셸 fan-out 인라인 가이드: $f"
+  else
+    fail "셸 fan-out 인라인 가이드 누락: $f"
+  fi
+done
+
+# Gemini 미러에 Codex 고유 표현이 새어 들어가면 안 된다 (생성 시 치환 누락 회귀).
+if grep -qiF 'codex' .gemini/commands/execute.toml; then
+  fail "gemini execute.toml 에 Codex 언급 잔존 (치환 누락)"
+else
+  ok "gemini execute.toml: Codex 언급 없음"
+fi
+
+# 워커가 plan.json 을 쓰지 못한다는 불변식이 세 CLI 문서에 남아 있어야 한다.
+for f in .claude/commands/execute.md .codex/prompts/execute.md .gemini/commands/execute.toml; do
+  if grep -qF 'plan_waves.py set' "$f"; then
+    ok "plan.json 단일 쓰기 경로 명시: $f"
+  else
+    fail "plan.json 단일 쓰기 경로 누락: $f"
+  fi
+done
+
+# 계산기 자체가 동작하는지 — 예시 plan 으로 스모크.
+if python3 scripts/plan_waves.py validate --plan templates/__docs/plan.example.json >/dev/null 2>&1; then
+  ok "plan_waves.py validate: 예시 plan 통과"
+else
+  fail "plan_waves.py validate 가 예시 plan 에서 실패"
+fi
 
 echo
 echo "===== 3) install.sh 문법 ====="
@@ -766,6 +835,17 @@ else
   fail "--cli=gemini 단독 설치 실패"
 fi
 assert_file_exists  "gemini-only: GEMINI.md"                  "$GEMINI_ONLY_DIR/GEMINI.md"
+# wave 계산기는 CLI 무관 공통 자산이다 — 어느 조합으로 설치해도 있어야 한다 (ADR-022).
+assert_file_exists  "gemini-only: scripts/plan_waves.py"      "$GEMINI_ONLY_DIR/scripts/plan_waves.py"
+assert_file_exists  "codex-only: scripts/plan_waves.py"       "$CODEX_ONLY_DIR/scripts/plan_waves.py"
+assert_file_exists  "claude-only: scripts/plan_waves.py"      "$CLAUDE_ONLY_DIR/scripts/plan_waves.py"
+assert_file_exists  "mix: scripts/plan_waves.py"              "$MIX_DIR/scripts/plan_waves.py"
+# 배포된 사본이 실제로 돌아가는지 — 복사만 되고 깨져 있으면 의미가 없다.
+if python3 "$GEMINI_ONLY_DIR/scripts/plan_waves.py" --help >/dev/null 2>&1; then
+  ok "gemini-only: 배포된 plan_waves.py 실행 가능"
+else
+  fail "gemini-only: 배포된 plan_waves.py 실행 불가"
+fi
 assert_file_missing "gemini-only: CLAUDE.md 부재"             "$GEMINI_ONLY_DIR/CLAUDE.md"
 assert_file_missing "gemini-only: AGENTS.md 부재"             "$GEMINI_ONLY_DIR/AGENTS.md"
 assert_file_missing "gemini-only: .claude/settings.json 부재" "$GEMINI_ONLY_DIR/.claude/settings.json"
