@@ -1,26 +1,67 @@
-description = "plan.json 의 다음 스텝을 실행 (TDD → 구현 → lint/build → 커밋). 인자: next|all|<id>"
+description = "plan.json 의 다음 스텝을 실행 (TDD → 구현 → lint/build → 커밋). 인자: next|all|parallel|<id>"
 
 prompt = '''
 # /execute — plan.json 기반 스텝 실행
 
-이 프롬프트는 Gemini CLI 에서 `/execute [next|all|<stepId>]` 호출 시 Claude Code 의 동명 슬래시 커맨드와 **동일한 흐름**으로 동작합니다. 슬래시 바인딩이 미확정인 경우 `@.gemini/commands/execute.toml 의 prompt 절차에 따라 next|all|<id> 로 진행해주세요` 같이 파일 참조로 사용하세요.
+이 프롬프트는 Gemini CLI 에서 `/execute [next|all|parallel|<stepId>]` 호출 시 Claude Code 의 동명 슬래시 커맨드와 **동일한 흐름**으로 동작합니다. 슬래시 바인딩이 미확정인 경우 `@.gemini/commands/execute.toml 의 prompt 절차에 따라 next|all|<id> 로 진행해주세요` 같이 파일 참조로 사용하세요.
 
 인자: {{args}}
 - `next` (기본): 다음 실행 가능한 스텝 **한 개**만 수행
 - `<stepId>`: 특정 스텝 id 수행
-- `all`: 차단 상태가 될 때까지 연속 수행
+- `all`: 차단 상태가 될 때까지 **웨이브 단위**로 연속 수행
+- `parallel`: 다음 웨이브 **한 번**만 병렬 수행하고 멈춘다
+
+> **Claude 판과의 비대칭 (의도된 것)**: Claude Code 에는 `Agent(isolation: "worktree")` 로
+> 워커를 띄우는 네이티브 수단이 있지만 Gemini 에는 없다. 그래서 병렬 실행은
+> `## 인라인 가이드 — 웨이브 병렬 실행 (셸 fan-out)` 의 `git worktree` + `gemini -p`
+> 경로로 수행한다. 이 섹션을 Claude 판과 1:1 로 맞추려 하지 말 것.
 
 ## 선조건 확인
 1. `__docs/plan.json` 존재 확인. 없으면 `/plan-steps` 을 먼저 돌리도록 안내.
 2. `status` 가 `planning` 이면 `in_progress` 로 전환하고 그대로 진행.
-3. 대상 스텝 결정:
-   - `next`: `status == "pending"` 이고 `depends_on` 의 모든 스텝이 `completed` 인 것 중 id 가 가장 작은 것.
-   - `all`: 같은 조건으로 반복. 에러/블록 발생 시 멈춤.
+3. 작업 트리가 clean 한지 확인. 병렬 모드는 커밋되지 않은 변경이 있으면 시작하지 않는다 —
+   워커가 고정할 베이스 커밋이 불분명해지기 때문이다.
+4. 대상 결정:
+   - `next` / `<stepId>`: 아래 **실행 파이프라인** 을 그 스텝 하나에 대해 수행.
+   - `all` / `parallel`: 아래 **웨이브 계산** 으로 집합을 구한 뒤 인라인 가이드로 병렬 수행.
+
+## 웨이브 계산
+
+`/execute` 의 실행 단위는 **웨이브** — "지금 동시에 띄워도 안전한 스텝 집합" 이다.
+
+- **ready** = `status` 가 `pending` 이고 `depends_on` 이 전부 `completed`
+- **wave** = ready 중 `touches` 가 서로 겹치지 않는 최대 집합
+
+이 판정은 추론하지 말고 **반드시 스크립트로 계산한다**. 의존성·경로 충돌 판정을 눈으로 하면
+틀려도 조용히 지나가고, 두 워커가 같은 파일을 밟는 사고로만 드러난다 (ADR-022).
+
+```bash
+python3 scripts/plan_waves.py wave --plan __docs/plan.json --max 3
+```
+
+| 키 | 의미 | 대응 |
+| --- | --- | --- |
+| `wave_ids` | 이번에 띄울 스텝 id | 2개 이상이면 병렬, 1개면 인라인 순차 |
+| `solo` | `true` 면 `touches` 미상이라 단독 실행 | 워커를 띄우지 말고 이 세션에서 직접 수행 |
+| `stalled` | `pending` 이 남았는데 wave 가 빈 상태 | 계획이 막힌 것이다. `cycles` 를 보고 사용자에게 보고 후 중단 |
+| `cycles` | 의존성 순환 | 사용자에게 보고. 자동 수정하지 않는다 |
+
+> **`scripts/plan_waves.py` 나 `python3` 가 없으면 병렬 모드를 포기하고 `next` 를 반복한다.**
+> 추론으로 웨이브를 흉내내지 않는다 — 틀린 병렬 실행이 순차 실행보다 훨씬 비싸다.
+
+`wave_ids` 가 2개 이상이면 **아래 `## 인라인 가이드 — 웨이브 병렬 실행 (셸 fan-out)` 절차를
+직접 수행**한다. 1개이거나 `solo` 면 아래 실행 파이프라인을 이 세션에서 그대로 수행한다.
+
+`plan.json` 쓰기는 **항상** 아래로만 한다. 손으로 편집하지 않는다.
+
+```bash
+python3 scripts/plan_waves.py set <id> --status <상태> [--commit <sha>] [--artifact <path>] [--error "<원인>"] --plan __docs/plan.json
+```
 
 ## 실행 파이프라인 (각 스텝)
 
 ### A. 스텝 로드
-- plan.json 의 해당 스텝 `status` 를 `in_progress` 로 변경하고 저장.
+- 해당 스텝 `status` 를 `in_progress` 로 변경 (`set --status in_progress`).
 
 ### B. 컨텍스트 수집
 - **아래 `## 인라인 가이드 — 병렬 탐색` 절차를 직접 수행**하여 스텝이 건드릴 기존 파일·인터페이스·테스트를 빠르게 파악한다.
@@ -53,12 +94,11 @@ prompt = '''
 
 ### H. 커밋
 - 커밋 메시지: `<type>: <스텝 제목>` + 본문에 "왜" 와 주요 변경.
-- 커밋 SHA 를 plan.json 의 해당 스텝 `commit` 필드에 기록.
-- `artifacts` 에 주요 변경 파일 목록 기록.
+- 커밋 SHA 와 변경 파일을 기록 (`set --commit <sha> --artifact <path>`).
 - `status` 를 `completed` 로 전환.
 
 ### I. 다음 스텝
-- 인자가 `all` 이면 선조건 재평가 후 반복.
+- 인자가 `all` 이면 웨이브를 재계산 후 반복.
 - 아니면 여기서 종료하고 요약을 사용자에게 보고.
 
 ## 종료 후 보고
@@ -66,14 +106,18 @@ prompt = '''
 
 ```
 ## 이번 /execute 결과
-- 실행한 스텝: <id> <title>
-- 상태: completed / error / blocked
-- 커밋: <sha>
-- 다음 후보: <id> <title>
+- 실행한 웨이브: [<id>, <id>] (병렬) 또는 <id> (단독)
+- 스텝별 상태: <id>=completed(<sha>) / <id>=error(<원인>)
+- 회수 방식: cherry-pick / 인라인 커밋
+- 남은 pending: <n>
+- 다음 웨이브 후보: [<id>, ...]
 ```
 
 ## 금지
 - plan.json 을 건너뛰고 즉흥적으로 다른 파일을 수정하지 않는다.
+- **`plan.json` 을 직접 편집하지 않는다.** 모든 쓰기는 `plan_waves.py set` 을 통한다.
+- 웨이브를 추론으로 계산하지 않는다. 스크립트 출력만 신뢰한다.
+- 워커 보고만 믿고 `completed` 로 기록하지 않는다. 실제 커밋을 확인한다.
 - 실패 테스트를 "약화" 해서 통과시키지 않는다.
 - 하나의 스텝에서 여러 기능을 한꺼번에 처리하지 않는다.
 - push 는 이 커맨드에서 하지 않는다. `/ship` 이 담당.
@@ -192,4 +236,114 @@ PASS | BLOCK
 ### 금지
 - 스타일 취향 지적 (규정·품질 이슈만)
 - 리뷰 단계에서 직접 수정 — 발견한 사항은 구현 단계로 되돌려 처리
+
+---
+
+## 인라인 가이드 — 웨이브 병렬 실행 (셸 fan-out)
+
+Claude Code 는 `Agent(isolation: "worktree")` 로 워커를 띄우지만 Gemini 에는 대응물이 없다.
+그래서 **워크트리를 직접 만들고 헤드리스 세션을 백그라운드로 띄우는** 경로를 쓴다.
+비대칭은 의도된 것이다 (ADR-022).
+
+### 전제
+- `git worktree` 가 쓸 수 있을 것. `.git` 은 워크트리 간에 공유되므로 워커 커밋은
+  fetch/push 없이 메인 저장소에서 바로 보인다.
+- 작업 트리가 clean 할 것.
+- 실패하면 **조용히 순차로 되돌아간다**. 병렬은 최적화일 뿐이고, 어설픈 병렬은 순차보다 비싸다.
+
+### 절차
+
+**1. 베이스 커밋 고정**
+
+```bash
+git rev-parse HEAD
+```
+
+이 전체 SHA 가 이번 웨이브 모든 워커의 베이스다. 워커 워크트리를 만들 때 **명시적으로
+이 SHA 를 지정**한다. 기본값에 맡기면 기본 브랜치 tip 에서 시작해, 앞선 스텝 커밋이 없는
+베이스 위에서 작업하게 된다.
+
+**2. 웨이브의 스텝마다 워크트리 생성**
+
+```bash
+git worktree add .worktrees/step-<id> -b exec/step-<id> <BASE_SHA>
+```
+
+`.worktrees/` 는 `.gitignore` 대상이다. `__docs/` 도 gitignore 대상이므로 **워커 워크트리에는
+`plan.json` 이 아예 없다** — 상태 단일 쓰기가 규칙이 아니라 물리적 사실이 된다.
+따라서 스텝 명세는 워커 프롬프트에 **인라인으로 실어 보낸다**.
+
+**3. 상태 전환 (오케스트레이터만)**
+
+```bash
+python3 scripts/plan_waves.py set <id> --status in_progress --plan __docs/plan.json
+```
+
+**4. 헤드리스 워커 기동 — 백그라운드로 동시에**
+
+워크트리마다 하나씩, **백그라운드로 한꺼번에** 띄운다. 순서대로 기다리면 병렬이 아니다.
+
+> 헤드리스 호출 플래그(`gemini -p`)는 본 사이클에서 실측하지 않았다. 설치된 CLI 의
+> `gemini --help` 로 비대화형 실행 플래그를 먼저 확인하고, 없으면 병렬 모드를 포기하고
+> `next` 를 반복한다.
+
+```bash
+cd .worktrees/step-<id> && gemini -p "<워커 프롬프트>" > ../../.worktrees/step-<id>.log 2>&1 &
+```
+
+워커 프롬프트에 반드시 포함할 것:
+
+1. **스텝 명세** — `title`, `description`, `touches`, 완료 기준. 관련 PRD/ADR 발췌.
+2. **범위 제약** — `touches` 에 선언된 경로 **밖은 수정 금지**. 다른 워커가 그 파일을 동시에 고치고 있다.
+3. **파이프라인** — 본 프롬프트의 C~H 를 수행하고 스텝당 **커밋 1개**로 끝낼 것.
+4. **금지** — `__docs/` 를 만들지 않는다. push 하지 않는다. 다른 브랜치로 전환하지 않는다.
+   `plan.json` 을 찾지 않는다 (없는 것이 정상이다).
+5. **반환 형식** — 로그 마지막 줄에 아래를 출력하게 한다.
+   ```
+   STEP_ID=<id> STATUS=<completed|error|blocked> COMMIT=<full sha 또는 none>
+   ```
+
+**5. 대기**
+
+```bash
+wait
+```
+
+**6. 회수 — 워커 커밋을 작업 브랜치로**
+
+워커 로그는 모델 출력이지 검증된 사실이 아니다. **로그를 믿지 말고 실제 커밋을 확인**한 뒤
+가져온다.
+
+```bash
+git log --oneline <BASE_SHA>..exec/step-<id>
+git cherry-pick <BASE_SHA>..exec/step-<id>
+```
+
+- 모든 워커가 같은 베이스 위에 있으므로 **cherry-pick 으로 통일**한다. 선형 히스토리가 유지된다.
+- `touches` 가 겹치지 않으므로 충돌은 원칙적으로 나지 않는다.
+  **충돌이 났다면 `touches` 선언이 틀렸다는 뜻이다.** 자동으로 봉합하지 말고
+  `git cherry-pick --abort` 후 해당 스텝을 `error` 로 기록하고 사용자에게 보고한다.
+
+**7. 상태 기록 (오케스트레이터만)**
+
+회수에 성공한 스텝만 `completed` 로 기록한다.
+
+```bash
+python3 scripts/plan_waves.py set <id> --status completed --commit <sha> --artifact <path> --plan __docs/plan.json
+```
+
+실패한 스텝은 `--status error --error "<원인>"` 으로 기록한다. `retries` 는 스크립트가 올린다.
+
+**8. 뒷정리**
+
+```bash
+git worktree remove --force .worktrees/step-<id>
+git branch -D exec/step-<id>
+```
+
+### 금지
+- 워커를 전경(foreground)으로 하나씩 돌리지 않는다. 그건 병렬이 아니다.
+- 워커에게 `plan.json` 을 복사해 주지 않는다. 사본이 갈라지면 상태가 깨진다.
+- 워커 로그의 자기보고만으로 `completed` 를 기록하지 않는다.
+- 워크트리를 남기지 않는다. 커밋이 있는 워크트리는 자동 정리되지 않는다.
 '''

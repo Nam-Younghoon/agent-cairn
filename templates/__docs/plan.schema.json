@@ -36,6 +36,11 @@
             "items": { "type": "integer" },
             "description": "이 스텝이 시작되기 전에 완료되어야 하는 다른 스텝의 id 목록"
           },
+          "touches": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "이 스텝이 **수정할 예정인** 경로 (파일 또는 디렉토리). 병렬 실행 판정에 쓰인다 — 의존성이 없어도 touches 가 겹치는 두 스텝은 동시에 돌 수 없다. 실행 후 결과인 `artifacts` 와 달리 실행 전 선언값이다. 글롭은 지원하지 않는다. 비었거나 없으면 범위 미상으로 보아 해당 스텝을 단독 실행한다"
+          },
           "scope": {
             "type": "string",
             "enum": ["backend", "web", "mobile", "infra", "docs", "cross-cutting"]
