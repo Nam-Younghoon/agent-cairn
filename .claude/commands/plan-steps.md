@@ -1,7 +1,7 @@
 ---
 description: PRD 를 읽어 실행 가능한 스텝으로 분해하고 __docs/plan.json 생성
 argument-hint: (인자 없음 — 현재 브랜치의 PRD.md 기준)
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git status), Bash(git branch:*), Agent
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git status), Bash(git branch:*), Bash(python3 scripts/plan_waves.py:*), Agent
 ---
 
 # /plan-steps — PRD → 실행 가능한 스텝 분해
@@ -28,6 +28,27 @@ PRD의 완료 기준 체크리스트 항목과 1:1 또는 1:N 매핑이 되도�
 - 의존성이 없는 스텝은 `depends_on` 을 비워두고, 병렬 실행 대상으로 삼는다.
 - 문서·인프라·앱 코드가 섞인 경우 `scope` 로 구분한다.
 
+### `touches` — 병렬 실행의 전제 (필수)
+
+`/execute` 는 독립 스텝을 **동시에** 실행한다. 그런데 `depends_on` 만으로는 부족하다 —
+의존성이 없어도 **같은 파일을 건드리는 두 스텝**은 동시에 돌 수 없다. 그래서 각 스텝에
+수정할 예정인 경로를 `touches` 로 선언한다 (ADR-022).
+
+- 2단계 탐색에서 파악한 실제 파일 경로를 적는다. 테스트 파일도 **빠뜨리지 않는다** —
+  구현과 테스트가 다른 스텝으로 갈리면 충돌 원인이 된다.
+- 범위가 넓으면 디렉토리로 적어도 된다 (`src/features/auth/`). 디렉토리는 그 아래 모든
+  파일과 충돌하는 것으로 판정된다.
+- **글롭(`*`)은 쓰지 않는다.** 글롭끼리의 교집합은 판정할 수 없어 "안 겹친다" 는 오답이
+  나올 수 있고, 그 오답의 대가가 두 워커의 동시 수정이다.
+- `artifacts` 와 혼동하지 않는다. `touches` 는 **실행 전 선언**, `artifacts` 는 실행 후 기록이다.
+- 정말 모르겠으면 **비워 둔다**. 비면 그 스텝은 단독 실행되므로 안전하지만 병렬화 이득은 없다.
+
+`touches` 를 채운 뒤 아래로 검증한다. 순환 의존성과 누락 의존성을 함께 잡아준다.
+
+```bash
+python3 scripts/plan_waves.py validate --plan __docs/plan.json
+```
+
 예시 스텝 표현:
 
 ```json
@@ -37,6 +58,10 @@ PRD의 완료 기준 체크리스트 항목과 1:1 또는 1:N 매핑이 되도�
   "description": "zod 스키마로 username/password 검증. 잘못된 값은 400 반환.",
   "scope": "backend",
   "depends_on": [1, 2],
+  "touches": [
+    "src/features/auth/schemas.ts",
+    "src/features/auth/schemas.test.ts"
+  ],
   "status": "pending"
 }
 ```
@@ -57,17 +82,32 @@ PRD의 완료 기준 체크리스트 항목과 1:1 또는 1:N 매핑이 되도�
   "status": "planning",
   "prd_path": "__docs/PRD.md",
   "steps": [
-    { "id": 1, "title": "...", "scope": "...", "status": "pending", "depends_on": [] }
+    {
+      "id": 1,
+      "title": "...",
+      "scope": "...",
+      "status": "pending",
+      "depends_on": [],
+      "touches": ["<수정할 경로>"]
+    }
   ]
 }
 ```
 
 ## 5단계. 요약 출력 및 사용자 승인
-생성된 스텝 목록을 표 형태로 사용자에게 보여주고, 다음을 묻는다.
+생성된 스텝 목록을 표 형태로 사용자에게 보여준다. 표에는 `touches` 와, 그에 따라
+**어떤 스텝이 함께 병렬 실행되는지**를 함께 보인다 (아래로 확인).
+
+```bash
+python3 scripts/plan_waves.py wave --plan __docs/plan.json
+```
+
+그리고 다음을 묻는다.
 
 - 스텝 분해가 적절한가?
 - 누락된 완료 기준이 있는가?
 - 순서/의존성이 맞는가?
+- `touches` 가 실제 수정 범위와 맞는가? (틀리면 병렬 실행 중 같은 파일을 동시에 고친다)
 
 승인 후 `plan.json` 의 `status` 를 `in_progress` 로 바꿀지, 아니면 사용자 확인 후 `/execute` 가 그때 전환할지는 다음 커맨드에 위임한다 (여기서는 `planning` 상태로 저장).
 

@@ -13,6 +13,10 @@
       "description": "zod 로 username/password 필수·길이·형식 검증. 실패 시 400 반환.",
       "scope": "backend",
       "depends_on": [],
+      "touches": [
+        "src/features/auth/schemas.ts",
+        "src/features/auth/schemas.test.ts"
+      ],
       "status": "completed",
       "retries": 0,
       "error_log": [],
@@ -28,6 +32,10 @@
       "description": "zod 검증 에러를 400 도메인 에러로 변환. 기존 500 경로 제거.",
       "scope": "backend",
       "depends_on": [1],
+      "touches": [
+        "src/features/auth/auth.controller.ts",
+        "src/middleware/error-handler.ts"
+      ],
       "status": "in_progress",
       "retries": 1,
       "error_log": [
@@ -45,6 +53,7 @@
       "description": "POST /login 에 잘못된 페이로드 → 400, 정상 페이로드 → 200 커버.",
       "scope": "backend",
       "depends_on": [2],
+      "touches": ["tests/integration/login.test.ts"],
       "status": "pending",
       "retries": 0,
       "error_log": [],
@@ -57,6 +66,7 @@
       "description": "400 응답을 폼 필드별 인라인 에러로 표시.",
       "scope": "web",
       "depends_on": [2],
+      "touches": ["src/features/login/components/login-form.tsx"],
       "status": "pending",
       "retries": 0,
       "error_log": [],

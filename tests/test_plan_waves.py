@@ -15,6 +15,7 @@ touches 가 없거나 빈 스텝은 "무엇을 건드릴지 모름" 이므로 **
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -26,6 +27,8 @@ from plan_waves import (
     ready_step_ids,
     update_step,
 )
+
+_ROOT = Path(__file__).resolve().parent.parent
 
 
 def make_step(step_id: int, **overrides: object) -> dict:
@@ -293,6 +296,35 @@ def test_atomic_write_는_임시파일을_남기지_않는다(tmp_path) -> None:
     atomic_write_plan(path, make_plan(make_step(1)))
     leftovers = [p.name for p in tmp_path.iterdir() if p.name != "plan.json"]
     assert leftovers == [], f"임시 파일이 남았다: {leftovers}"
+
+
+def test_템플릿_스키마에_touches_가_정의되어_있다() -> None:
+    schema = json.loads(
+        (_ROOT / "templates/__docs/plan.schema.json").read_text(encoding="utf-8")
+    )
+    step_properties = schema["properties"]["steps"]["items"]["properties"]
+    assert "touches" in step_properties, "스키마에 touches 가 없다"
+    assert step_properties["touches"]["type"] == "array"
+
+
+def test_템플릿_예시의_모든_스텝이_touches_를_선언한다() -> None:
+    """예시가 touches 를 비워두면 '안 적어도 된다' 는 잘못된 신호를 준다."""
+    plan = json.loads(
+        (_ROOT / "templates/__docs/plan.example.json").read_text(encoding="utf-8")
+    )
+    missing = [s["id"] for s in plan["steps"] if not s.get("touches")]
+    assert missing == [], f"touches 가 빠진 예시 스텝: {missing}"
+
+
+def test_템플릿_예시가_실제로_병렬_웨이브를_보여준다() -> None:
+    """진행 중인 스텝 2 가 끝나면 3·4 가 동시에 떠야 예시로서 값을 한다."""
+    plan = json.loads(
+        (_ROOT / "templates/__docs/plan.example.json").read_text(encoding="utf-8")
+    )
+    for step in plan["steps"]:
+        if step["id"] == 2:
+            step["status"] = "completed"
+    assert compute_wave(plan) == [3, 4]
 
 
 def test_atomic_write_는_기존_내용을_깨지_않는다(tmp_path) -> None:
