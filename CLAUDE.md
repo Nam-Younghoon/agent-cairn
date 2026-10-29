@@ -110,9 +110,10 @@ feat: 사용자 프로필 이미지 업로드 추가
 
 | 서브에이전트 | 호출 시점 | 금지 |
 | --- | --- | --- |
-| `parallel-explorer` | `/discuss`, `/plan`, `/execute` 의 초반 컨텍스트 수집 | 코드 수정, 사용자 질문 |
+| `Explore` (Claude Code 빌트인) | `/discuss`, `/plan`, `/execute` 의 초반 컨텍스트 수집 | 코드 수정, 사용자 질문 |
 | `tdd-tester` | `/execute` 의 C 단계 (실패 테스트 작성) | 구현체 수정, 테스트 약화 |
-| `pre-commit-reviewer` | `/execute` 의 G 단계 (커밋 직전), `/ship` 의 최종 검증 | 직접 수정 (위임만) |
+| `/code-review` (빌트인 스킬) | `/execute` 의 G 단계 1번 — 일반 품질·버그 | — |
+| `pre-commit-reviewer` | `/execute` 의 G 단계 2번 — **하네스 규정 전용**, `/ship` 의 규정 검증 | 직접 수정 (위임만), `/code-review` 와 중복 지적 |
 | `pr-reviewer` | `/pr-reviewer` 의 리뷰 단계 (4단계 전 과정 위임) | 코드 수정, PR 코멘트 게시, git 상태 변경 |
 
 ### 3.3 에러 대응 규칙
@@ -159,12 +160,13 @@ feat: 사용자 프로필 이미지 업로드 추가
 ### Claude Code
 - `.claude/commands/discuss.md` — `/discuss` 슬래시 커맨드 정의
 - `.claude/commands/pr-reviewer.md` — `/pr-reviewer` 슬래시 커맨드 정의 (PR 리뷰 트랙)
-- `.claude/agents/` — 병렬 탐색·TDD·리뷰 전용 서브에이전트 (`parallel-explorer`, `tdd-tester`, `pre-commit-reviewer`, `pr-reviewer`)
+- `.claude/agents/` — TDD·리뷰 전용 서브에이전트 (`tdd-tester`, `pre-commit-reviewer`, `pr-reviewer`). 코드 탐색은 Claude Code 빌트인 `Explore` 에 위임 (ADR-020)
 - `.claude/hooks/`, `.claude/patterns/secrets.yaml` — 위험 명령 / 시크릿 쓰기 하드락
+- `.claude/VERSION_NOTES.md` — 네이티브 빌트인 의존성·모델 배정 등 **버전 민감 지침 집약** (ADR-020)
 
 ### Codex CLI (ADR-001, ADR-004, ADR-005)
 - `.codex/prompts/{discuss,plan,execute,ship,pr-reviewer}.md` — Claude 커맨드와 동일 이름·동일 흐름.
-  Claude 서브에이전트(parallel-explorer/tdd-tester/pre-commit-reviewer/pr-reviewer) 호출 지점을
+  Claude 서브에이전트(tdd-tester/pre-commit-reviewer/pr-reviewer)와 빌트인 탐색 에이전트 호출 지점을
   `## 인라인 가이드 —` 섹션으로 치환해 Codex 단일 세션에서 직접 수행.
 - `.codex/config.toml` — `approval_policy="on-request"` + `sandbox_mode="workspace-write"` +
   `network_access=true` 기본값. 보수 모드 재정의 예시 주석 포함.

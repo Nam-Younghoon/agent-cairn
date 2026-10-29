@@ -12,7 +12,7 @@ allowed-tools: Bash(git:*), Read, Write, Edit, Glob, Grep, Agent
 산출물은 `__docs/` 디렉토리에만 저장되며, 실제 구현은 여기서 시작하지 않습니다.
 
 ## 서브에이전트 호출 흐름 (요약)
-- **`parallel-explorer`**: 기존 구조·유사 기능 위치를 병렬로 훑을 때 (4단계 문서 작성 직전).
+- **`Explore`** (Claude Code 빌트인): 기존 구조·유사 기능 위치를 병렬로 훑을 때 (4단계 문서 작성 직전).
 - `tdd-tester`, `pre-commit-reviewer` 는 이 커맨드에서 호출하지 **않는다**. 이후 단계에서 사용.
 
 ---
@@ -68,7 +68,7 @@ feat | fix | chore | refactor | design | docs | test
 
 ## 4단계. (필요 시) 병렬 탐색
 
-ARCHITECTURE.md 또는 PRD 의 "기존 구현" 항목을 채우기 위해 정보가 필요하면 **`parallel-explorer` 서브에이전트를 병렬로** 호출한다. 예:
+ARCHITECTURE.md 또는 PRD 의 "기존 구현" 항목을 채우기 위해 정보가 필요하면 **빌트인 `Explore` 서브에이전트를 병렬로** 호출한다. 예:
 - "기존 로그인 플로우가 어디에 있나"
 - "Express 프로젝트의 에러 응답 규약은 무엇인가"
 - "이 기능이 들어갈 feature 폴더 위치는 어디인가"

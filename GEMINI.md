@@ -39,7 +39,7 @@
 **PR 리뷰 트랙 (독립)**:
 - `/pr-reviewer <PR번호> [추가 메시지]`: 지정된 PR 을 4단계(컨텍스트 수집 → 요구사항 검증 → 사이드 이펙트 분석 → 전사 재검수)로 리뷰하고 PASS|BLOCK 판정. 사용자 승인 시에만 PR 코멘트를 게시합니다.
 
-> Gemini 세션에서는 위 커맨드가 `.gemini/commands/<name>.toml` 의 `prompt` 본문으로 정의됩니다. Claude 의 서브에이전트(parallel-explorer/tdd-tester/pre-commit-reviewer/pr-reviewer) 호출 지점은 `## 인라인 가이드` 섹션으로 치환되어 단일 세션에서 직접 수행됩니다.
+> Gemini 세션에서는 위 커맨드가 `.gemini/commands/<name>.toml` 의 `prompt` 본문으로 정의됩니다. Claude 의 서브에이전트(tdd-tester/pre-commit-reviewer/pr-reviewer)와 빌트인 탐색 에이전트 호출 지점은 `## 인라인 가이드` 섹션으로 치환되어 단일 세션에서 직접 수행됩니다.
 
 ### 2. 안전장치 (하드락)
 위험 명령(`rm -rf`, `git push --force`, `git reset --hard`, `prod` 환경의 `DROP/ALTER TABLE`, Flyway/Liquibase 파괴 명령)과 시크릿(`.env` 쓰기, `.claude/patterns/secrets.yaml` 패턴)에 대한 보호는 **CLI 별로 강도가 다릅니다**:

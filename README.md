@@ -15,7 +15,7 @@
 | Codex 기본 설정 | `.codex/config.toml` | `approval_policy="on-request"`, `sandbox_mode="workspace-write"`, `network_access=true` + 프로젝트 trust 승격 안내 |
 | Gemini 슬래시 커맨드 | `.gemini/commands/{discuss,plan,execute,ship,pr-reviewer}.toml` | 동일 이름·동일 흐름. TOML 단일 파일 (description + prompt 인라인). 서브에이전트 호출 지점은 인라인 가이드로 치환 (ADR-013) |
 | Gemini 기본 설정 | `.gemini/settings.json` | `{"sandbox": true}` — OS-level sandbox 권장값. 비활성화 시 위험 명령·시크릿 보호가 GEMINI.md soft lock 만 남음 (ADR-014) |
-| 서브에이전트 (Claude) | `.claude/agents/{parallel-explorer,tdd-tester,pre-commit-reviewer,pr-reviewer}.md` | 탐색·TDD·리뷰·PR 리뷰 전용. Codex/Gemini 는 네이티브 미사용, 인라인 가이드로 대체 (ADR-001/013) |
+| 서브에이전트 (Claude) | `.claude/agents/{tdd-tester,pre-commit-reviewer,pr-reviewer}.md` | TDD·리뷰·PR 리뷰 전용. 코드 탐색은 빌트인 `Explore` 에 위임 (ADR-020). Codex/Gemini 는 네이티브 미사용, 인라인 가이드로 대체 (ADR-001/013) |
 | 스택별 CLAUDE.md | `templates/{express,nextjs,flutter,nestjs,springboot,springboot-kotlin}/CLAUDE.md` | 아키텍처·스크립트·테스트 정책 + 올바른 모양 예시. `--cli=codex,gemini` 포함 시 동일 본문이 스택 경로의 `AGENTS.md` / `GEMINI.md` 로도 복제 |
 | 문서 템플릿 | `templates/__docs/` | PRD / ARCHITECTURE / ADR / UI_GUIDE / plan.schema.json |
 | 린트/포매터 | `templates/node/`, `templates/nestjs/eslint.config.mjs`, `templates/flutter/analysis_options.yaml`, `templates/springboot{,-kotlin}/spotless.gradle.kts` | ESLint(flat) + Prettier, NestJS 전용 ESLint, analysis_options, Spotless(옵트인) |
@@ -52,9 +52,10 @@
 BLOCK 기준: 요구사항 미충족·로직 결함, 보안·시크릿 누출, 하네스 규약 위반(any 타입·하드코딩·네이밍 등). TDD 누락은 WARNING.
 
 각 커맨드 내부에서 호출되는 서브에이전트:
-- `parallel-explorer`: `/discuss`, `/plan`, `/execute` 의 초반 컨텍스트 수집.
+- `Explore` (Claude Code 빌트인): `/discuss`, `/plan`, `/execute` 의 초반 컨텍스트 수집.
 - `tdd-tester`: `/execute` 의 C 단계 (실패 테스트 작성).
-- `pre-commit-reviewer`: `/execute` 의 G 단계 (커밋 전 게이트), `/ship` 의 최종 검증.
+- `/code-review` (Claude Code 빌트인 스킬): `/execute` 의 G 단계 1번 — 일반 품질·버그.
+- `pre-commit-reviewer`: `/execute` 의 G 단계 2번 — 하네스 규정 전용 게이트, `/ship` 의 규정 검증.
 - `pr-reviewer`: `/pr-reviewer` 의 리뷰 단계 (4단계 전 과정 위임, 읽기 전용).
 
 ## 설치

@@ -5,6 +5,8 @@
 ## [Unreleased]
 
 ### 추가
+- **`.claude/VERSION_NOTES.md` 신설 — 버전 민감 지침 집약** — 하네스가 의존하는 Claude Code 빌트인 자산(`Explore` 서브에이전트, `/code-review` 스킬, `claude --worktree`, 플랜 모드)과 **각각의 폴백 경로**, 서브에이전트 모델 배정, `/execute all` 장기 자율 실행 시 모델 전환 권장안을 한 파일로 모음. 커맨드·에이전트 본문에는 모델명과 빌트인 이름을 고정하지 않고 이 파일을 참조하게 해, 라인업·네이티브 변경 시 점검 범위를 "커맨드 5 + 에이전트 3" 에서 파일 1개로 축소. `install.sh` 배포 목록과 `test-harness.sh` 필수 파일 목록에 등록 (ADR-020).
+- **`tests/test_agent_references.py` 신설 — 서브에이전트 참조 정합성 회귀 테스트** — 문서가 호출하는 에이전트 이름과 `.claude/agents/` 의 정의 집합이 어긋나면 실패. ① 폐기된 에이전트 이름이 배포 자산(`CLAUDE.md`/`README.md`/`GEMINI.md`/`.claude/commands`/`.codex/prompts`/`.gemini/commands`/`scripts`/`templates`)에 남아 있는지, ② 정의 파일이 실제로 제거됐는지, ③ 에이전트를 언급하는 줄의 kebab-case 토큰이 모두 정의되어 있는지 검증. 이력을 담는 `CHANGELOG.md`·`VERSION_NOTES.md` 와 브랜치 전용 `__docs/` 는 스캔 제외.
 - **Git worktree 기반 멀티 세션 격리 지원** — 같은 레포에서 AI 세션을 동시에 여러 개 굴릴 때 세션마다 독립 워크트리(독립 HEAD/작업 트리)에서 시작해 `/discuss` 의 HEAD 전환 간섭을 구조적으로 제거. 워크트리는 **세션 실행 시점**에 만들고 커맨드는 워크트리-세이프하게만 동작(ADR-016). ① 세 CLI(`/discuss`)의 브랜치 생성을 `git switch dev && git pull` → `git switch -c <branch> origin/<base>` 로 교체해 base 로컬 체크아웃을 제거, 메인 워크트리가 base 를 잡고 있어도 dual-checkout `fatal` 회피(ADR-017). ② 세 CLI(`/ship`)에 머지 후 워크트리 정리 7단계 추가(Claude 네이티브 자동 / `scripts/worktree.sh clean`). ③ `scripts/worktree.sh new|list|clean` 헬퍼 신설 — Codex/Gemini 용으로 Claude 네이티브 `--worktree` + `.worktreeinclude` 동작을 모사(base detached HEAD 워크트리 생성 + gitignore 파일 승계 복사, 시크릿 값 로그 비노출, task 경로 트래버설 가드). ④ `templates/worktreeinclude.partial`(`.env*` 승계 목록) + `.gitignore`/`gitignore.partial` 에 `.claude/worktrees/`·`.worktrees/` 블록. ⑤ `install.sh --with-worktree` 옵트인 플래그(`--with-spotless` 패턴 미러)로 `.worktreeinclude` + `scripts/worktree.sh` 배포. ⑥ 공용 본문에 §2.7 "워크트리 — 멀티 세션 격리" 절차를 추가해 CLAUDE/AGENTS/GEMINI 3-way 동일 분배. ⑦ ADR-016~019(생성 시점·워크트리-세이프 브랜치·멀티 CLI 분기·옵트인 배포) 등록. test-harness 4j~4o 섹션 신설로 회귀 통과: **PASS=310 / FAIL=0** (이전 269 → 310).
 - **`/pr-reviewer` 슬래시 커맨드 신설** — 지정된 PR 번호를 4단계(컨텍스트 수집 → 요구사항 검증 → 사이드 이펙트 분석 → 전사 재검수) 로 깊게 리뷰하고 PASS|BLOCK 판정을 내리는 독립 트랙. `/discuss → /plan → /execute → /ship` 파이프라인과는 별도로 호출(`/pr-reviewer <PR번호> [추가 메시지]`). 결과는 `__docs/pr-review-<PR번호>.md` 로 저장되고 콘솔 요약이 출력되며, 사용자가 `yes/no/dry-run` 으로 승인할 때에만 PR 코멘트를 게시(BLOCK 사유는 `gh api` line-level, 종합은 `gh pr comment` — 두 호출 모두 임시 파일 + `--body-file` / `-F body=@<파일>` 로 쉘 인젝션·65,536자 제한 동시 회피). 외부 레포(`--repo` 옵션) 는 1단계에서 즉시 거절. BLOCK 기준은 요구사항 미충족·로직 결함 / 보안·시크릿 누출 / 하네스 규약 위반(any 타입, 시크릿 하드코딩, 줄임말 네이밍 등). TDD 누락은 WARNING 으로 분류해 PASS 와 양립.
 - **`pr-reviewer` Claude 서브에이전트** (`.claude/agents/pr-reviewer.md`) — 위 커맨드의 4단계 리뷰를 메인 세션 컨텍스트에서 분리해 수행. `tools` 권한은 `Read, Glob, Grep, Bash` 로 한정 (Write/Edit/NotebookEdit 미포함). 코드 수정·PR 코멘트 게시·git 상태 변경은 명시적으로 금지하고, 모든 권장 수정은 보고서 텍스트로만 표현. 시크릿 후보(`password=`, `token=`, `Bearer `, AKIA, JWT 패턴 등) 는 보고서에 인용 시 `***MASKED***` 로 마스킹 의무화.
@@ -34,12 +36,19 @@
 - `scripts/test-harness.sh`: 신규 스택 3종의 필수 파일 체크, 단일/--with-spotless on/off/모노레포 혼합 시나리오, 잘못된 식별자(`spring-boot`) 거부 검증 추가. `run_scenario` 가 extra_args 를 받도록 확장.
 
 ### 변경
+- **`/execute` G 단계를 2단 리뷰 게이트로 분리 (ADR-020)** — ① 빌트인 `/code-review` 스킬이 일반 품질·버그를, ② `pre-commit-reviewer` 서브에이전트가 **하네스 규정만** 본다. 1번 결과 요약을 2번에 전달해 같은 지적 반복을 방지. 둘 중 하나라도 BLOCK 이면 기존대로 F 단계 재시도 루프로 복귀(재시도 카운트 공유). `execute.md` frontmatter 의 `allowed-tools` 에 `Skill` 추가. `/ship` 2단계 실패 분석도 원인에 따라 `/code-review` 와 `pre-commit-reviewer` 로 분기.
+- **`pre-commit-reviewer` 를 하네스 규정 전용 게이트로 재정의** — `/code-review` 가 더 잘하는 일반 품질 항목(중복 코드·에러 처리·불필요 주석)을 제거하고, 네이티브가 알 수 없는 규정 항목을 보강: 시크릿 하드코딩과 `.env.example` 동반 갱신, `NEXT_PUBLIC_*` 비밀값 노출, TDD 준수(로직 변경 시 테스트 동반 / 기존 테스트 약화 금지), `any` 금지, 줄임말 네이밍, **스텝 범위 이탈**(주변 리팩터링·다중 관심사 커밋). 언어별 게이트는 E 단계 이후 추가 수정이 있었을 때만 재실행하고 그 외에는 "E 단계 결과 승계" 로 보고.
+- **Codex/Gemini 미러의 `## 인라인 가이드 — 커밋 전 리뷰` 에 비대칭 주석 추가** — 해당 CLI 에는 `/code-review` 대응물이 없어 인라인 가이드가 일반 품질 + 하네스 규정을 **모두** 담당해야 하므로, Claude 쪽 슬림화를 1:1 동기화하지 말라는 경고를 명시.
+- **`execute.md` 의 모델 선택 가이드를 `VERSION_NOTES.md` 참조로 치환** — 특정 모델명이 커맨드 본문에 고정되어 라인업 변경 시 조용히 낡던 문제를 제거.
 - `templates/flutter/CLAUDE.md` 아키텍처 개편 — 이름형 layer-first(`core/`, `config/`, `data/`, `domain/`, `features/`)를 번호형 레이어드 클린 아키텍처(`00_config`~`04_infra`, 단방향 의존 `01→02→03←04`, 배선은 `00_config/di` 에만)로 재작성해 의존 방향을 폴더 구조로 강제. 상태관리는 단일 스택으로 고정하지 않고 Riverpod(권장)/GetX/BLoC 개방(§2 에 라이브러리별 컨트롤러·DI 배치 가이드), 에러 처리·네트워크도 선택지로 유지. `analysis_options.yaml` 은 기술 비의존이라 변경 없음.
 - `install.sh` 헤더 동작 설명을 CLI 별 조건부 배포로 정정 (`.claude/` 와 `CLAUDE.md` 는 `--cli` 에 `claude` 가 포함된 경우에만 배포).
 - `install.sh --help` 출력을 고정 라인 수(`'1,30p'`) 대신 `set -euo` 센티넬 기반으로 변경 (헤더 주석 분량 변화에 자동 적응).
 - `install.sh` 사용법 헤더와 마무리 안내에 신규 스택·`--with-spotless` 설명 반영.
 - 루트 `CLAUDE.md` 의 린트/포매터 섹션에 NestJS·SpringBoot(Java/Kotlin) 규약 추가.
 - 루트 `CLAUDE.md` "4. 하드락" 섹션에 **Claude 세션 전용** 표기 추가 — Codex 세션은 `approval_policy` / `sandbox_mode` 로만 보호됨을 명시.
+
+### 제거
+- **`parallel-explorer` 서브에이전트 폐기 (ADR-020)** — Claude Code 빌트인 `Explore` 서브에이전트와 역할이 100% 중복이라 유지 가치가 없다고 판단. `.claude/agents/parallel-explorer.md` 삭제 후 호출 지점 전부를 빌트인 `Explore` 로 치환(`/discuss` 4단계, `/plan` 2단계, `/execute` B단계, `pr-reviewer.md` 금지 목록, `CLAUDE.md` §3.2 표·§5 참고, `README.md` 구성표·서브에이전트 목록, `GEMINI.md`, `templates/__docs/ARCHITECTURE.md` 작성 규칙). `install.sh` 배포 목록과 `test-harness.sh` 필수 파일 목록에서도 제거. Codex/Gemini 미러는 인라인 가이드가 대체하므로 절차 본문은 유지하고 폐기된 이름만 역할 기술로 교체. 회귀 통과: pytest 91 passed, `test-harness.sh` **PASS=313 / FAIL=0**.
 
 ### 유의사항 / 후속 이슈
 - **Codex 세션 보안 비대칭**: Claude 훅의 위험 명령·**`.env`/시크릿 문자열 쓰기 차단** 은 **Claude 세션 전용**입니다. Codex 세션에서는 `approval_policy="on-request"` 로 샌드박스 경계를 넘을 때만 승인을 요구하며, 시크릿 문자열은 감지되지 않습니다. 시크릿·위험 명령을 다룰 때 각별히 주의하세요.

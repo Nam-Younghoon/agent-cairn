@@ -12,7 +12,7 @@ allowed-tools: Bash, Read, Write, Grep, Agent
 
 ## 서브에이전트 호출 흐름 (요약)
 - **`pr-reviewer`**: 컨텍스트 수집·요구사항 검증·사이드 이펙트 분석·전사 재검수 전 과정을 수행. 본 커맨드의 핵심.
-- 다른 서브에이전트(`parallel-explorer`, `tdd-tester`, `pre-commit-reviewer`)는 본 커맨드에서 호출하지 **않는다**.
+- 다른 서브에이전트(`tdd-tester`, `pre-commit-reviewer`)와 빌트인 `Explore` 는 본 커맨드에서 호출하지 **않는다**.
 
 ---
 

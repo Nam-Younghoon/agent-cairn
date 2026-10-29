@@ -15,7 +15,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git status), Bash(git branch:
 - `__docs/plan.json` 이 이미 있고 `status != planning` 이면 덮어쓰지 말고 사용자에게 확인.
 
 ## 2단계. 병렬 탐색 (존재하는 구조 파악)
-필요시 **`parallel-explorer` 서브에이전트를 병렬로 호출**해 아래를 1~3 꼭지로 빠르게 수집.
+필요시 **빌트인 `Explore` 서브에이전트를 병렬로 호출**해 아래를 1~3 꼭지로 빠르게 수집.
 - 이번 기능이 들어갈 계층/모듈 위치
 - 기존 유사 기능의 컨벤션 (있다면)
 - 영향받는 파일·의존성
